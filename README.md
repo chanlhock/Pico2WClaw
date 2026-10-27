@@ -24,7 +24,7 @@
 
 ## :scroll: Description
 Development of a small Autonomous AI Agent in Raspberry Pi Pico 2 W. \
-The program runs on Raspberry Pi Pico 2 W.
+The Micropython program runs on Raspberry Pi Pico 2 W.
 
 ## :computer: Development Platform
 I have tested on Raspberry Pi Pico 2 W running Thonny. It may also work on Raspberry Pi Pico W.
