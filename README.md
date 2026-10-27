@@ -5,11 +5,11 @@
 </p>
 
 <p align="center">
-<i>Out of clutter, find Simplicity. From discord, find Harmony.<br> In the middle of difficulty lies Opportunity.</i><br><br>
+<i>The intelligence of an AI is only as good as the model used.</i><br><br>
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; ― Albert Einstein
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; ― Bernard Chan
 </p> 
 
 ## Table of Contents
