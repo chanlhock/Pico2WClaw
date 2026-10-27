@@ -30,13 +30,13 @@ The program runs on Raspberry Pi Pico 2 W.
 I have tested on Raspberry Pi Pico 2 W running Thonny. It may also work on Raspberry Pi Pico W.
 
 On the Raspberry Pi Pico 2 W:
-1. Do ensure that the Raspberry Pi Pico W is flashed with the correct *.uf2 file
-2. The RPI_PICO_W-20251209-v1.27.0.uf2 file can be downloaded from DeepSeek folder in this repository.
-3. Open Thonny and upload the files, ble.py and ssd1306.py in the repository folder /RPi Pi Pico W BLE onto Raspberry Pi Pico W. Program is written in MicroPython.
-4. Open the file ble.py
-5. Run ble.py. The following output will be displayed in the Thonny run window.
+1. Do ensure that the Raspberry Pi Pico 2 W is flashed with the correct *.uf2 file
+2. The RPI_PICO2_W-20260824-v1.29.0.uf2 file can be downloaded from resources folder in this repository.
+3. Open Thonny and upload all the files in the repository folder /pico2wclaw onto Raspberry Pi Pico W. Program is written in MicroPython.
+4. Open the file boot2.py
+5. Run boot2.py. The following output will be displayed in the Thonny run window.
 
-Note: You can rename ble.py to main.py so that the program will automatically run when Raspberry Pi Pico W power up.
+Note: You can rename boot2.py to boot.py so that the program will automatically run when Raspberry Pi Pico 2 W power up.
 ~~~~
 MPY: soft reboot
 Initializing BLE...
@@ -45,7 +45,7 @@ Service registered, handle: 9
 Advertising as 'Joystick_Pico'
 
 ~~~~
-6. Raspberry Pi Pico W is now ready and accepting command from Hermes Agent running on the MacBook Air 2017. 
+6. Raspberry Pi Pico 2 W is now ready and accepting command from Hermes Agent running on the MacBook Air 2017. 
 
 On the MacBook Air 2017:
 1. Open Thonny and upload all the files in the repository folder DeepSeek/Pi5game onto Raspberry Pi 5. Program is using MicroPython.
@@ -55,7 +55,7 @@ On the MacBook Air 2017:
 ## :floppy_disk: Software Development:
 I have two systems, one in MacBook Air 2017 and the other in Raspberry Pi Pico W. 
 
-On Raspberry Pi Pico W, there would be Micropython code that:
+On Raspberry Pi Pico 2 W, there would be Micropython code that:
 - pin assigned below:
 - GP20 -> SDA (SSD1306 OLED)
 - GP21 -> SCL (SSD1306 OLED)
