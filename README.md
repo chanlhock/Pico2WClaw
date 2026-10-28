@@ -110,6 +110,7 @@ I have tested my code on:
 - MacBook Air 2017 with Sequioa MacOS running Thonny with Raspberry Pi Pico 2 W
 
 ## :film_strip: Screenshots
+Raspberry Pi Pico 2 W board running Pico2WClaw Agentic Agent.
 <p float="left">
   <img src="resources/pico2wclaw-board.jpg" width="600" />
 </p>
