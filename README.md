@@ -92,11 +92,6 @@ MicroPython: 3.4.0;
 ~~~~
 6. Raspberry Pi Pico 2 W is now ready and accepting command from Hermes Agent running on the MacBook Air 2017. 
 
-On the MacBook Air 2017:
-1. Open Thonny and upload all the files in the repository folder DeepSeek/Pi5game onto Raspberry Pi 5. Program is using MicroPython.
-2. Open the file Pi5_Space_Invaders_Bluetooth_Fast.py
-3. Run Pi5_Space_Invaders_Bluetooth_Fast.py
-
 ## :floppy_disk: Software Development:
 I have two systems, one in MacBook Air 2017 and the other in Raspberry Pi Pico W. 
 
