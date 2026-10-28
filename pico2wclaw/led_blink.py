@@ -3,39 +3,83 @@ led_blink.py — Persistent onboard-LED blink helper for Raspberry Pi Pico 2 W.
 
 Uses Pin("LED") so it works through the CYW43 chip on Pico W / Pico 2 W.
 A module-scoped Timer keeps blinking even after exec_code() returns.
+
+Blink timing is guarded by a minimum-gap check so that occasional delayed
+timer callbacks cannot produce visible on-off spikes.
 """
 
 import machine
+import time
 
-_t = None
-_state = {"running": False}
+
+class _Blinker:
+    def __init__(self):
+        self.t = None
+        self.running = False
+        self.last_toggle_ms = 0
+        self.led = None
+        self.period_ms = 0
+
+    def _toggle(self, _):
+        if not self.running or self.led is None:
+            return
+        now = time.ticks_ms()
+        min_gap = max(1, self.period_ms // 4)
+        if time.ticks_diff(now, self.last_toggle_ms) < min_gap:
+            return
+        self.last_toggle_ms = now
+        self.led.value(1 if self.led.value() == 0 else 0)
+
+    def start(self, period_ms):
+        self.stop()
+        try:
+            self.led = machine.Pin("LED", machine.Pin.OUT)
+        except Exception as e:
+            return "Error: onboard LED unavailable (%s)" % e
+        self.running = True
+        self.period_ms = max(1, min(10000, int(period_ms)))
+        self.last_toggle_ms = 0
+        try:
+            self.t = machine.Timer(0)
+        except Exception:
+            self.t = machine.Timer(-1)
+        self.t.init(period=self.period_ms, mode=machine.Timer.PERIODIC, callback=self._toggle)
+        return "Blinking with period %s ms (%s s ON, %s s OFF)" % (
+            self.period_ms,
+            self.period_ms // 1000,
+            self.period_ms // 1000,
+        )
+
+    def stop(self):
+        self.running = False
+        self.last_toggle_ms = 0
+        if self.t:
+            try:
+                self.t.deinit()
+            except Exception:
+                pass
+            self.t = None
+        if self.led:
+            try:
+                self.led.off()
+            except Exception:
+                pass
+            self.led = None
+        return "Blink stopped"
+
+
+_blinker = _Blinker()
 
 
 def start(freq_hz=1):
     """Start blinking the onboard LED at `freq_hz` (Hz). Use this for persistent blinking."""
-    global _t
-    stop()
-    try:
-        led = machine.Pin("LED", machine.Pin.OUT)
-    except Exception as e:
-        return "Error: onboard LED unavailable (%s)" % e
-    _state["running"] = True
-
-    def _toggle(_):
-        if not _state["running"]:
-            return
-        led.value(1 if led.value() == 0 else 0)
-
-    # Clamp frequency so the timer period stays valid and visible
     hz = float(freq_hz)
     if hz <= 0:
         hz = 1.0
     if hz > 50:
         hz = 50.0
     period_ms = int(1000 / hz)
-    _t = machine.Timer(-1)
-    _t.init(period=period_ms, mode=machine.Timer.PERIODIC, callback=_toggle)
-    return "Blinking at %s Hz (period %s ms)" % (hz, period_ms)
+    return _blinker.start(period_ms)
 
 
 def start_period(period_ms=1000):
@@ -43,45 +87,12 @@ def start_period(period_ms=1000):
     The LED stays in each state for `period_ms` milliseconds.
     Example: period_ms=2000 means 2s ON, 2s OFF.
     """
-    global _t
-    stop()
-    try:
-        led = machine.Pin("LED", machine.Pin.OUT)
-    except Exception as e:
-        return "Error: onboard LED unavailable (%s)" % e
-    _state["running"] = True
-
-    def _toggle(_):
-        if not _state["running"]:
-            return
-        led.value(1 if led.value() == 0 else 0)
-
-    # Clamp to a visible range
-    ms = int(period_ms)
-    if ms <= 0:
-        ms = 1000
-    if ms > 10000:
-        ms = 10000
-    _t = machine.Timer(-1)
-    _t.init(period=ms, mode=machine.Timer.PERIODIC, callback=_toggle)
-    return "Blinking with period %s ms (%s s ON, %s s OFF)" % (ms, ms // 1000, ms // 1000)
+    return _blinker.start(period_ms)
 
 
 def stop():
     """Stop blinking and turn the LED off."""
-    global _t
-    _state["running"] = False
-    if _t:
-        try:
-            _t.deinit()
-        except Exception:
-            pass
-        _t = None
-    try:
-        machine.Pin("LED", machine.Pin.OUT).off()
-    except Exception:
-        pass
-    return "Blink stopped"
+    return _blinker.stop()
 
 
 def toggle():

@@ -1,5 +1,5 @@
 """
-boot.py — Boot script for PycoClaw-Pico on Raspberry Pi Pico 2 W.
+boot.py — Boot script for Pico2WClaw on Raspberry Pi Pico 2 W.
 Runs on power-up / reset. Connects to WiFi and starts the agent serial loop.
 """
 
@@ -47,7 +47,7 @@ def main():
     boot_splash()
 
     print("\n" + "=" * 50)
-    print("  PycoClaw-Pico booting...")
+    print("  Pico2WClaw booting...")
     print("=" * 50)
 
     wlan = connect_wifi(config.WIFI_SSID, config.WIFI_PASSWORD)
@@ -72,14 +72,31 @@ def main():
     agent = Agent()
     set_status("ready", beep_type="click")
 
-    # Start Telegram polling (optional, every 3 s)
+    # Start Telegram polling in a background thread so its HTTP blocking
+    # never delays the main loop (serial REPL + timer callbacks).
     if getattr(config, "TELEGRAM_BOT_TOKEN", ""):
         try:
-            tg_timer = machine.Timer(-1)
-            tg_timer.init(period=3000, mode=machine.Timer.PERIODIC, callback=lambda t: agent.telegram_loop())
-            print("[boot] Telegram polling started")
-        except Exception as e:
-            print("[boot] Telegram poller failed:", e)
+            import _thread
+            def _tg_worker():
+                while True:
+                    try:
+                        agent.telegram_loop()
+                    except Exception as e:
+                        print("[telegram] thread error:", e)
+                    time.sleep(1)
+            _thread.start_new_thread(_tg_worker, ())
+            print("[boot] Telegram thread started")
+        except (ImportError, OSError) as e:
+            print("[boot] Telegram thread unavailable:", e)
+            # Fallback: timer-based polling in main loop
+            try:
+                tg_timer = machine.Timer(-1)
+                def _tg_tick(_t):
+                    agent._telegram_due = True
+                tg_timer.init(period=3000, mode=machine.Timer.PERIODIC, callback=_tg_tick)
+                print("[boot] Telegram timer fallback started")
+            except Exception as e2:
+                print("[boot] Telegram poller failed:", e2)
 
     agent.serial_loop()
 

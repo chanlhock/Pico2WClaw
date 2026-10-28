@@ -1,5 +1,5 @@
 """
-memory.py — On-device memory for PycoClaw-Pico.
+memory.py — On-device memory for Pico2WClaw.
 Uses a simple keyword/TF-IDF approach stored on the filesystem.
 No vector embeddings (too heavy for Pico 2 W).
 """

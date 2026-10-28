@@ -1,5 +1,5 @@
 """
-tools.py — Tool registry for PycoClaw-Pico.
+tools.py — Tool registry for Pico2WClaw.
 Each tool is a Python callable with a JSON schema for the LLM.
 """
 
@@ -109,14 +109,22 @@ def device_info():
         temp_str = f"{temp_c:.1f}C"
     except Exception:
         temp_str = "N/A"
+    try:
+        import sys
+        mp_ver = sys.version.split()[0] if hasattr(sys, "version") else "unknown"
+    except Exception:
+        mp_ver = "unknown"
     info = (
         f"Board: Raspberry Pi Pico 2 W (RP2350)\n"
         f"CPU freq: {freq/1_000_000:.0f} MHz\n"
         f"RAM: ~512 KB\n"
         f"Flash: 4 MB\n"
         f"Chip temp: {temp_str}\n"
-        f"WiFi RSSI: {rssi} dBm" if rssi is not None else ""
+        f"WiFi RSSI: {rssi} dBm\n"
+        f"MicroPython: {mp_ver}"
     )
+    if rssi is None:
+        info = info.replace("\nWiFi RSSI: None dBm", "")
     return info
 
 

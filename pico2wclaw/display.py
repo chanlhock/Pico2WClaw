@@ -1,5 +1,5 @@
 """
-display.py — OLED + buzzer UI for PycoClaw-Pico.
+display.py — OLED + buzzer UI for Pico2WClaw.
 Integrates SSD1306 display and buzzer for status feedback.
 """
 
@@ -79,7 +79,7 @@ def _init_display():
         i2c = machine.I2C(0, sda=machine.Pin(I2C_SDA), scl=machine.Pin(I2C_SCL), freq=400000)
         _oled = SSD1306_I2C(OLED_WIDTH, OLED_HEIGHT, i2c)
         _oled.fill(0)
-        _oled.text("PycoClaw-Pico", 0, 0)
+        _oled.text("Pico2WClaw", 0, 0)
         _oled.text("  Init...", 0, 16)
         _oled.show()
         return True
@@ -118,7 +118,7 @@ def show_status(state, detail=""):
 # Boot splash
 # ---------------------------------------------------------------------------
 _SPLASH_FRAMES = [
-    "PycoClaw-Pico",
+    "Pico2WClaw",
     " Booting",
     "  Booting.",
     "   Booting..",

@@ -1,9 +1,10 @@
 """
-agent.py — Core agent loop for PycoClaw-Pico.
+agent.py — Core agent loop for Pico2WClaw.
 Implements a simplified OpenClaw-style agent: prompt → LLM → tools → answer.
 """
 
 import json
+import sys
 import time
 from machine import Pin, freq
 
@@ -19,6 +20,8 @@ class Agent:
         self.history = []  # in-memory conversation history
         self.running = False
         self._telegram_offset = 0
+        self._telegram_due = False
+        self._prompt_printed = True  # shared with telegram_loop for prompt restore
 
     # ------------------------------------------------------------------
     # LLM API client (OpenAI-compatible)
@@ -166,7 +169,9 @@ class Agent:
         return final_answer
 
     # ------------------------------------------------------------------
-    # Serial REPL loop
+    # Serial REPL loop (short-blocking input — input() blocks the main
+    # thread and prevents hardware timer callbacks from firing on time,
+    # which stretches LED blink periods and causes spikes.)
     # ------------------------------------------------------------------
     def serial_loop(self):
         print("=" * 50)
@@ -175,37 +180,118 @@ class Agent:
         print("  Commands: /info, /memory, /clear, /tools")
         print("=" * 50)
         self.running = True
-        while self.running:
+
+        # Use a short blocking timeout. Zero-timeout reads are unreliable
+        # on some MicroPython builds and can return None for real
+        # keystrokes/newlines. A 20 ms timeout keeps the loop responsive
+        # enough for timer callbacks to stay on schedule.
+        try:
+            sys.stdin.settimeout(0.02)
+        except AttributeError:
             try:
-                user_input = input("> ").strip()
-            except KeyboardInterrupt:
+                sys.stdin.buffer.settimeout(0.02)
+            except Exception:
+                pass
+
+        _line = ""
+        print("> ", end="")
+        _last_char_ms = time.ticks_ms()
+        while self.running:
+            # Telegram check (timer fallback path)
+            if self._telegram_due:
+                self._telegram_due = False
+                self._prompt_printed = False
+                try:
+                    self.telegram_loop()
+                except Exception as e:
+                    print("[agent] telegram loop error:", e)
+
+            # If Telegram output ran and the user isn't typing, restore the prompt.
+            if not _line and not self._prompt_printed:
+                print("> ", end="")
+                self._prompt_printed = True
+
+            # Short-blocking character read
+            ch = None
+            try:
+                ch = sys.stdin.read(1)
+                if ch == "":
+                    ch = None
+            except (EOFError, OSError):
+                ch = None
+            except Exception:
+                ch = None
+
+            if ch is None:
+                # No character this pass. If the user stopped typing and
+                # we have an unfinished line, process it so we don't hang
+                # waiting for a newline that this build may never deliver.
+                if _line and time.ticks_diff(time.ticks_ms(), _last_char_ms) > 300:
+                    user_input = _line.strip()
+                    _line = ""
+                    self._process_serial_input(user_input)
+                    print("> ", end="")
+                    self._prompt_printed = True
+                time.sleep_ms(5)
+                continue
+
+            _last_char_ms = time.ticks_ms()
+
+            if ch in ("\r", "\n"):
+                print()
+                user_input = _line.strip()
+                _line = ""
+                if not user_input:
+                    print("> ", end="")
+                    self._prompt_printed = True
+                    continue
+                self._process_serial_input(user_input)
+                print("> ", end="")
+                self._prompt_printed = True
+
+            elif ch == "\x08" or ch == "\x7f":  # backspace
+                if _line:
+                    _line = _line[:-1]
+                    print("\b \b", end="")
+            elif ch == "\x03":  # Ctrl+C
                 print("\n[agent] shutting down.")
                 self.running = False
                 break
+            else:
+                _line += ch
+                self._prompt_printed = False
+                print(ch, end="")
 
-            if not user_input:
-                continue
+    def _process_serial_input(self, user_input):
+        """Process a completed serial CLI command."""
+        try:
             if user_input == "/info":
                 from tools import device_info
                 print(device_info())
-                continue
+                return
             if user_input == "/memory":
                 for s in self.memory.search(user_input, max_results=10):
                     print("  -", s[:100])
-                continue
+                return
             if user_input == "/clear":
                 self.history = []
                 self.memory.documents = []
                 self.memory.save()
                 print("History and memory cleared.")
-                continue
+                return
             if user_input == "/tools":
                 for t in get_tool_defs():
-                    print(f"  {t['function']['name']}: {t['function']['description']}")
-                continue
+                    print(
+                        f"  {t['function']['name']}: {t['function']['description']}"
+                    )
+                return
+        except Exception as e:
+            import sys as _sys
+            _sys.print_exception(e)
+            return
 
-            reply = self.run_turn(user_input, source="serial")
-            print(f"\n{config.AGENT_NAME}: {reply}\n")
+        reply = self.run_turn(user_input, source="serial")
+        print(f"\n{config.AGENT_NAME}: {reply}\n")
 
     # ------------------------------------------------------------------
     # Telegram Bot polling loop (optional)
@@ -232,14 +318,22 @@ class Agent:
             config.TELEGRAM_BOT_TOKEN, self._telegram_offset
         )
         try:
-            resp = urequests.get(url, timeout=10)
+            resp = urequests.get(url, timeout=2)
             try:
                 data = resp.json()
             except Exception:
                 data = {}
             resp.close()
         except Exception as e:
+            # Suppress expected network timeout noise; show other errors
+            try:
+                import errno
+                if isinstance(e, OSError) and e.args and e.args[0] in (errno.ETIMEDOUT, errno.ECONNRESET, errno.EHOSTUNREACH):
+                    return
+            except Exception:
+                pass
             print("[telegram] poll error:", e)
+            self._prompt_printed = False
             return
 
         updates = data.get("result", [])
@@ -255,9 +349,37 @@ class Agent:
             if not text or not chat_id:
                 continue
             if config.TELEGRAM_ALLOWED_USERS and chat_id not in config.TELEGRAM_ALLOWED_USERS:
+                self._prompt_printed = False
                 print("[telegram] ignored unauthorized chat:", chat_id)
                 continue
 
+            self._prompt_printed = False
             print("[telegram] message from", chat_id, ":", text[:60])
-            reply = self.run_turn(text, source="telegram")
-            self.telegram_send(chat_id, reply)
+            try:
+                if text == "/info":
+                    from tools import device_info
+                    reply = device_info()
+                elif text == "/tools":
+                    from tools import get_tool_defs
+                    lines = []
+                    for t in get_tool_defs():
+                        lines.append(f"{t['function']['name']}: {t['function']['description']}")
+                    reply = "\n".join(lines)
+                elif text == "/memory":
+                    snippets = self.memory.search(text, max_results=10)
+                    reply = "\n".join(f"- {s[:100]}" for s in snippets) if snippets else "(memory empty)"
+                elif text == "/clear":
+                    self.history = []
+                    self.memory.documents = []
+                    self.memory.save()
+                    reply = "History and memory cleared."
+                else:
+                    reply = self.run_turn(text, source="telegram")
+                self.telegram_send(chat_id, reply)
+            except Exception as e:
+                self._prompt_printed = False
+                print("[telegram] handler error:", e)
+                try:
+                    self.telegram_send(chat_id, "Error: %s" % e)
+                except Exception:
+                    pass

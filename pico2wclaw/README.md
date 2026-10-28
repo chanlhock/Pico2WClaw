@@ -1,8 +1,8 @@
-# PycoClaw-Pico
+# Pico2WClaw
 
 A minimal agentic AI runtime for the **Raspberry Pi Pico 2 W** (RP2350, 520 KB SRAM, 4 MB flash, WiFi).
 
-This is a heavily trimmed-down port of the PycoClaw/OpenClaw concept:
+This is a heavily trimmed-down port of the Pico2WClaw/OpenClaw concept:
 - ✅ LLM API integration (OpenAI-compatible)
 - ✅ Tool calling (GPIO, ADC, PWM, I2C, exec)
 - ✅ On-device memory (keyword-based)
