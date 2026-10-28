@@ -93,7 +93,6 @@ MicroPython: 3.4.0;
 6. Raspberry Pi Pico 2 W is now ready and accepting command from Hermes Agent running on the MacBook Air 2017. 
 
 ## :floppy_disk: Software Development:
-I have two systems, one in MacBook Air 2017 and the other in Raspberry Pi Pico W. 
 
 On Raspberry Pi Pico 2 W, the Micropython code would run an autonomous Agentic AI which:
 - pin assigned below:
@@ -104,7 +103,8 @@ On Raspberry Pi Pico 2 W, the Micropython code would run an autonomous Agentic A
 - communicate with MacBook Air 2017 through Thonny serial CLI.
 - Accepts command from Telegram to turn ON or OFF onboard LED and do other stuffs
 - OLED SSD1306 4 lines display setable through Telegram message to LLM
-    
+More detail information can be obtained from [GNU General Public License](LICENSE)
+
 ## :iphone: Platform tested:
 I have tested my code on:
 - MacBook Air 2017 with Sequioa MacOS running Thonny with Raspberry Pi Pico 2 W
