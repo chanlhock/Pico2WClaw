@@ -103,7 +103,7 @@ On Raspberry Pi Pico 2 W, the Micropython code would run an autonomous Agentic A
 - communicate with MacBook Air 2017 through Thonny serial CLI.
 - Accepts command from Telegram to turn ON or OFF onboard LED and do other stuffs
 - OLED SSD1306 4 lines display setable through Telegram message to LLM
-More detail information can be obtained from [GNU General Public License](LICENSE)
+More detail information can be obtained from [Pico2WClaw README](/pico2wclaw/README.md)
 
 ## :iphone: Platform tested:
 I have tested my code on:
