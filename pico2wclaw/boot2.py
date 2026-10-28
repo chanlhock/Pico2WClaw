@@ -80,7 +80,9 @@ def main():
             def _tg_worker():
                 while True:
                     try:
-                        agent.telegram_loop()
+                        had_work = agent.telegram_loop()
+                        if had_work:
+                            print("> ", end="")
                     except Exception as e:
                         print("[telegram] thread error:", e)
                     time.sleep(1)

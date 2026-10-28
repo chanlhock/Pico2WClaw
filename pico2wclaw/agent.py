@@ -337,6 +337,7 @@ class Agent:
             return
 
         updates = data.get("result", [])
+        processed_any = False
         for upd in updates:
             upd_id = upd.get("update_id", 0)
             if upd_id:
@@ -349,12 +350,11 @@ class Agent:
             if not text or not chat_id:
                 continue
             if config.TELEGRAM_ALLOWED_USERS and chat_id not in config.TELEGRAM_ALLOWED_USERS:
-                self._prompt_printed = False
                 print("[telegram] ignored unauthorized chat:", chat_id)
                 continue
 
-            self._prompt_printed = False
             print("[telegram] message from", chat_id, ":", text[:60])
+            processed_any = True
             try:
                 if text == "/info":
                     from tools import device_info
@@ -383,3 +383,4 @@ class Agent:
                     self.telegram_send(chat_id, "Error: %s" % e)
                 except Exception:
                     pass
+        return processed_any
