@@ -96,10 +96,10 @@ MicroPython: 3.4.0;
 
 On Raspberry Pi Pico 2 W, the Micropython code would run an autonomous Agentic AI which:
 - pin assigned below:
-- GP20 -> SDA (SSD1306 OLED)
-- GP21 -> SCL (SSD1306 OLED)
-- GP25 (Onboard LED)
-- GP22 (Buzzer)
+	- GP20 -> SDA (SSD1306 OLED)
+	- GP21 -> SCL (SSD1306 OLED)
+	- GP25 (Onboard LED)
+	- GP22 (Buzzer)
 - communicate with MacBook Air 2017 through Thonny serial CLI.
 - Accepts command from Telegram to turn ON or OFF onboard LED and do other stuffs
 - OLED SSD1306 4 lines display setable through Telegram message to LLM
