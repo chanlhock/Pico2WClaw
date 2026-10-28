@@ -71,10 +71,7 @@ I have tested my code on:
 
 ## :film_strip: Screenshots
 <p float="left">
-  <img src="resources/system-block-diagram.png" width="600" />
-</p>
-<p float="left">
-  <img src="resources/gesture_landmarks.jpg" width="600" />
+  <img src="resources/pico2wclaw-board.jpg" width="600" />
 </p>
 
 ## :coffee: Buy Me a Coffee
