@@ -39,11 +39,56 @@ On the Raspberry Pi Pico 2 W:
 Note: You can rename boot2.py to boot.py so that the program will automatically run when Raspberry Pi Pico 2 W power up.
 ~~~~
 MPY: soft reboot
-Initializing BLE...
-Registering services...
-Service registered, handle: 9
-Advertising as 'Joystick_Pico'
 
+==================================================
+  Pico2WClaw booting...
+==================================================
+[wifi] connecting to chanhome 2.4GHz ...
+[wifi] waiting... (1/20)
+[wifi] waiting... (2/20)
+[wifi] waiting... (3/20)
+[wifi] waiting... (4/20)
+[wifi] waiting... (5/20)
+[wifi] waiting... (6/20)
+[wifi] waiting... (7/20)
+[wifi] waiting... (8/20)
+[wifi] waiting... (9/20)
+[wifi] waiting... (10/20)
+[wifi] connected: ('192.168.0.24', '255.255.255.0', '192.168.0.1', '192.168.0.1')
+[boot] time synced via NTP
+[boot] Telegram polling started
+==================================================
+  Pico2WClaw ready.
+  Type a message and press Enter.
+  Commands: /info, /memory, /clear, /tools
+==================================================
+> /tools
+/tools
+  led_blink_start: Start blinking the onboard LED at a given frequency (Hz). IMPORTANT: Use this tool for persistent blinking. Do NOT use exec_code to create timers or threads — they die when exec_code returns. Use Pin('LED') for the onboard LED, not Pin(25).
+  beep_now: Play a beep on the buzzer. freq in Hz, duration in seconds.
+  pwm_set: Set PWM frequency and duty on a GPIO pin.
+  gpio_read: Read digital state of a GPIO pin.
+  device_info: Return Pico 2 W hardware info (CPU, RAM, temp, WiFi RSSI).
+  exec_code: Execute MicroPython code on the device. Returns stdout or error.
+  gpio_write: Set a GPIO pin HIGH or LOW. Use for LEDs, relays, transistors.
+  i2c_scan: Scan I2C bus for connected devices.
+  led_blink_stop: Stop the persistent onboard-LED blink and turn the LED off.
+  display_text: Write up to 4 lines on the OLED display (128x64).
+  start_blink: Start blinking the onboard LED with an explicit period in milliseconds. Use this when the user specifies a duration like 'every 2 seconds'. IMPORTANT: Use this tool for persistent blinking. Do NOT use exec_code to create timers or threads — they die when exec_code returns. Use Pin('LED') for the onboard LED, not Pin(25).
+  adc_read: Read 12-bit ADC value and voltage from a pin.
+  led_toggle: Toggle the onboard LED once.
+> [telegram] message from 8684515324 : /tools
+[telegram] message from 8684515324 : /info
+/info
+/info
+Board: Raspberry Pi Pico 2 W (RP2350)
+CPU freq: 150 MHz
+RAM: ~512 KB
+Flash: 4 MB
+Chip temp: 35.9C
+WiFi RSSI: -59 dBm
+MicroPython: 3.4.0;
+> 
 ~~~~
 6. Raspberry Pi Pico 2 W is now ready and accepting command from Hermes Agent running on the MacBook Air 2017. 
 
