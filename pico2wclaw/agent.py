@@ -192,7 +192,7 @@ class Agent:
         print("=" * 50)
         print(f"  {config.AGENT_NAME} ready.")
         print("  Type a message and press Enter.")
-        print("  Commands: /info, /memory, /clear, /tools")
+        print("  Commands: /info, /memory, /clear, /tools, /skills, /skill_read <name>")
         print("=" * 50)
         self.running = True
 
