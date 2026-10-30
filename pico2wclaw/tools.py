@@ -104,21 +104,39 @@ def device_info():
         rssi = None
     freq = machine.freq()
     try:
+        import gc
+        free_ram = gc.mem_free()
+        alloc_ram = gc.mem_alloc()
+        total_ram = free_ram + alloc_ram
+        ram_str = f"{total_ram:,} bytes (free: {free_ram:,}, used: {alloc_ram:,})"
+    except Exception:
+        ram_str = "N/A"
+    try:
+        import os
+        st = os.statvfs('/')
+        block_size = st[0]
+        total_blocks = st[2]
+        free_blocks = st[3]
+        flash_total = block_size * total_blocks
+        flash_free = block_size * free_blocks
+        flash_str = f"{flash_total:,} bytes total, {flash_free:,} bytes free"
+    except Exception:
+        flash_str = "N/A"
+    try:
         temp_raw = machine.ADC(4).read_u16()
         temp_c = 27 - ((temp_raw * 3.3 / 65535) - 0.706) / 0.001721
         temp_str = f"{temp_c:.1f}C"
     except Exception:
         temp_str = "N/A"
     try:
-        import sys
         mp_ver = sys.version.split()[0] if hasattr(sys, "version") else "unknown"
     except Exception:
         mp_ver = "unknown"
     info = (
         f"Board: Raspberry Pi Pico 2 W (RP2350)\n"
         f"CPU freq: {freq/1_000_000:.0f} MHz\n"
-        f"RAM: ~512 KB\n"
-        f"Flash: 4 MB\n"
+        f"RAM: {ram_str}\n"
+        f"Flash: {flash_str}\n"
         f"Chip temp: {temp_str}\n"
         f"WiFi RSSI: {rssi} dBm\n"
         f"MicroPython: {mp_ver}"

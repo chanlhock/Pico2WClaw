@@ -44,10 +44,11 @@ At the `>` prompt, type messages like:
 - `Display "Hello" on line 1`
 - `Beep at 1000Hz for 0.2s`
 - `Run this code: print(1+1)`
-- `/info` — show hardware info
+- `/info` — show hardware info (CPU, RAM, flash, temp, WiFi, MicroPython)
 - `/tools` — list available tools
 - `/memory` — search memory
 - `/clear` — wipe history and memory
+- `/help` — show command help
 
 ## Onboard LED Blinking
 

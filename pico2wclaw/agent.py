@@ -269,6 +269,17 @@ class Agent:
                 from tools import device_info
                 print(device_info())
                 return
+            if user_input == "/help":
+                print(
+                    "Commands:\n"
+                    "  /info   - hardware info (CPU, RAM, flash, temp, WiFi, MicroPython)\n"
+                    "  /tools  - list available tools\n"
+                    "  /memory - search memory\n"
+                    "  /clear  - wipe history and memory\n"
+                    "  /help   - show this help\n"
+                    "Or type a question/request and press Enter to chat with the agent."
+                )
+                return
             if user_input == "/memory":
                 for s in self.memory.search(user_input, max_results=10):
                     print("  -", s[:100])
@@ -359,6 +370,16 @@ class Agent:
                 if text == "/info":
                     from tools import device_info
                     reply = device_info()
+                elif text == "/help":
+                    reply = (
+                        "Commands:\n"
+                        "  /info   - hardware info (CPU, RAM, flash, temp, WiFi, MicroPython)\n"
+                        "  /tools  - list available tools\n"
+                        "  /memory - search memory\n"
+                        "  /clear  - wipe history and memory\n"
+                        "  /help   - show this help\n"
+                        "Or send a question/request and I'll process it."
+                    )
                 elif text == "/tools":
                     from tools import get_tool_defs
                     lines = []
