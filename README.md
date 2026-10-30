@@ -125,7 +125,7 @@ It was then I got the idea of why not directly put the Agentic AI Agent on the I
 Subsequently I did a search and found that there is an open source development of such Agent for ESP32 S3 but there is no available agent for Raspberry Pi Pico yet.<br>
 The Pycoclaw project can be found at: https://github.com/jetpax/pycoclaw<br>
 I used my Hermes agent to study Pycoclaw repository and create for me Micropython code that works for Raspberry Pi Pico 2 W.<br>
-I also prompted Hermes that it can remove some of the functionality like MCP, etc given that Raspberry Pi Pico 2 W resource of 512kB RAM and 4MB Flash.<br>
+I also prompted Hermes that it can remove some of the functionality like MCP, cron job, etc given that Raspberry Pi Pico 2 W resource of 512kB RAM and 4MB Flash.<br>
 - 29th Oct 2026: Initially the led flashing was not working correctly. Later Hermes fixed it by doing threading so that it doesn't affect the serial cli and Telegram polling.<br>
 Completed debugging and the initial version of Pico2WClaw is fully functional as an autonomous Agentic AI Agent.
 The DeepSeek LLM can generate Python code to execute on Pico2WClaw playing tune on the buzzer but it crashed with timeout error half way.
