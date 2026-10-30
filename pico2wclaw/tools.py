@@ -120,7 +120,7 @@ def device_info():
         free_blocks = st[3]
         flash_total = block_size * total_blocks
         flash_free = block_size * free_blocks
-        flash_str = f"{flash_total:,} bytes total, {flash_free:,} bytes free"
+        flash_str = f"{flash_total:,} bytes (free: {flash_free:,}, used: {flash_total - flash_free:,})"
     except Exception:
         flash_str = "N/A"
     try:
@@ -130,7 +130,7 @@ def device_info():
     except Exception:
         temp_str = "N/A"
     try:
-        mp_ver = sys.version.split()[0] if hasattr(sys, "version") else "unknown"
+        mp_ver = sys.version.split()[0].rstrip(";") if hasattr(sys, "version") else "unknown"
     except Exception:
         mp_ver = "unknown"
     info = (
