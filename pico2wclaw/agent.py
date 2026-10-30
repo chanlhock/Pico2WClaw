@@ -22,6 +22,17 @@ class Agent:
         self._telegram_offset = 0
         self._telegram_due = False
         self._prompt_printed = True  # shared with telegram_loop for prompt restore
+        self._skill_instrs = []
+        self._skill_namespaces = {}
+        try:
+            from skills_loader import load_skills, get_skill_namespaces
+            _extra_tools, self._skill_instrs = load_skills()
+            if _extra_tools:
+                from tools import merge_skill_tools
+                merge_skill_tools(_extra_tools)
+            self._skill_namespaces = get_skill_namespaces()
+        except Exception as e:
+            print("[skills] init failed:", e)
 
     # ------------------------------------------------------------------
     # LLM API client (OpenAI-compatible)
@@ -64,11 +75,15 @@ class Agent:
     # ------------------------------------------------------------------
     def _build_messages(self, user_message):
         # 1. System prompt
+        skill_block = ""
+        if self._skill_instrs:
+            skill_block = "\n\n[Loaded skills]\n" + "\n".join(self._skill_instrs)
         system = {
             "role": "system",
             "content": config.SYSTEM_PROMPT
             + "\n\nAvailable tools: "
             + ", ".join(get_tool_defs()[t]["function"]["name"] for t in range(len(get_tool_defs())))
+            + skill_block
             + "\nUse tools when the user asks to interact with hardware, sensors, or code.",
         }
 
@@ -276,9 +291,32 @@ class Agent:
                     "  /tools  - list available tools\n"
                     "  /memory - search memory\n"
                     "  /clear  - wipe history and memory\n"
+                    "  /skills - list loaded skills\n"
+                    "  /skill_read <name> - read a skill's instructions\n"
                     "  /help   - show this help\n"
                     "Or type a question/request and press Enter to chat with the agent."
                 )
+                return
+            if user_input == "/skills":
+                names = sorted(self._skill_namespaces.keys())
+                if not names:
+                    print("No skills loaded.")
+                    return
+                for name in names:
+                    ns = self._skill_namespaces[name]
+                    instr = ns.get("SKILL_INSTR", "(no instructions)")
+                    tools = ns.get("TOOLS", {})
+                    tool_names = ", ".join(tools.keys()) if tools else "no tools"
+                    print("- {0}: {1} (tools: {2})".format(name, instr, tool_names))
+                return
+            if user_input.startswith("/skill_read "):
+                name = user_input[len("/skill_read "):].strip()
+                ns = self._skill_namespaces.get(name)
+                if not ns:
+                    print("Skill '{0}' not found.".format(name))
+                    return
+                instr = ns.get("SKILL_INSTR", "(no instructions)")
+                print("[{0}]\n{1}".format(name, instr))
                 return
             if user_input == "/memory":
                 for s in self.memory.search(user_input, max_results=10):
@@ -389,6 +427,27 @@ class Agent:
                 elif text == "/memory":
                     snippets = self.memory.search(text, max_results=10)
                     reply = "\n".join(f"- {s[:100]}" for s in snippets) if snippets else "(memory empty)"
+                elif text == "/skills":
+                    names = sorted(self._skill_namespaces.keys())
+                    if not names:
+                        reply = "No skills loaded."
+                    else:
+                        lines = []
+                        for name in names:
+                            ns = self._skill_namespaces[name]
+                            instr = ns.get("SKILL_INSTR", "(no instructions)")
+                            tools = ns.get("TOOLS", {})
+                            tool_names = ", ".join(tools.keys()) if tools else "no tools"
+                            lines.append("- {0}: {1} (tools: {2})".format(name, instr, tool_names))
+                        reply = "\n".join(lines)
+                elif text.startswith("/skill_read "):
+                    name = text[len("/skill_read "):].strip()
+                    ns = self._skill_namespaces.get(name)
+                    if not ns:
+                        reply = "Skill '{0}' not found.".format(name)
+                    else:
+                        instr = ns.get("SKILL_INSTR", "(no instructions)")
+                        reply = "[{0}]\n{1}".format(name, instr)
                 elif text == "/clear":
                     self.history = []
                     self.memory.documents = []

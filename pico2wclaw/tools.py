@@ -439,6 +439,12 @@ TOOL_REGISTRY = {
 }
 
 
+def merge_skill_tools(extra_tools):
+    """Merge skill-provided tools into the main registry."""
+    global TOOL_REGISTRY
+    TOOL_REGISTRY.update(extra_tools)
+
+
 def get_tool_defs():
     """Return OpenAI-compatible tool definitions for the LLM."""
     return [
