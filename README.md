@@ -122,12 +122,14 @@ Raspberry Pi Pico 2 W board running Pico2WClaw Agentic Agent.
 Gotten this idea when I was helping my son develop his Final Year project. His project was sending gestures prompt to Hermes agent in his laptop.
 Hermes then execute a Skills to send through BLE to ESP32 IoT device to turn on/off led.<br>
 It was then I got the idea of why not directly put the Agentic AI Agent on the IoT device bypassing laptop Agent.<br>
-Subsequently I did a check abd found that there is an open source development of such Agent for ESP32 S3 but there is no available agent for Raspberry Pi Pico yet.<br>
-The Pycoclaw project can be found at: https://github.com/jetpax/pycoclaw
-- 29th Oct 2026: I used my Hermes agent to study Pycoclaw repository and create for me Micropython code that works for Raspberry Pi Pico 2 W.<br>
-I prompted Hermes that it can remove some of the functionality like MCP, etc given that Raspberry Pi Pico 2 W resource of 512kB RAM and 4MB Flash.<br>
-Completed debgging and the initial version of Pico2WClaw is fully functional as an autonomous Agentic AI Agent.
-- 30th Oct 2026: Added Skills file features for Pico2WClaw
+Subsequently I did a search and found that there is an open source development of such Agent for ESP32 S3 but there is no available agent for Raspberry Pi Pico yet.<br>
+The Pycoclaw project can be found at: https://github.com/jetpax/pycoclaw<br>
+I used my Hermes agent to study Pycoclaw repository and create for me Micropython code that works for Raspberry Pi Pico 2 W.<br>
+I also prompted Hermes that it can remove some of the functionality like MCP, etc given that Raspberry Pi Pico 2 W resource of 512kB RAM and 4MB Flash.<br>
+- 29th Oct 2026: Initially the led flashing was not working correctly. Later Hermes fixed it by doing threading so that it doesn't affect the serial cli and Telegram polling.<br>
+Completed debugging and the initial version of Pico2WClaw is fully functional as an autonomous Agentic AI Agent.
+The DeepSeek LLM can generate Python code to execute on Pico2WClaw playing tune on the buzzer but it crashed with timeout error half way.
+- 30th Oct 2026: Fixed the play tune to buzzer issues. In addition, added Skills file features for Pico2WClaw
 
 ## :plate_with_cutlery: Incomplete Todo Tasks
 - [X] Add Skills file capability like other Agentic Agent, such as PicoClaw, Hermes, OpenClaw, etc
