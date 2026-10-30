@@ -18,6 +18,8 @@
 - [Software Development](#floppy_disk-software-development)
 - [Platform Tested](#iphone-platform-tested)
 - [Screenshots](#film_strip-screenshots)
+- [Chronology of Development Events](#hourglass_flowing_sand-chronology-of-development-events)
+- [Incomplete Todo Tasks](#plate_with_cutlery-incomplete-todo-tasks)
 - [Buy Me a Coffee](#coffee-buy-me-a-coffee)
 - [License](#page_with_curl-license)
 - [Feedback and Suggestions](#speech_balloon-feedback-and-suggestions)
