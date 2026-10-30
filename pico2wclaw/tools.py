@@ -5,6 +5,7 @@ Each tool is a Python callable with a JSON schema for the LLM.
 
 import machine
 import time
+import utime
 import sys
 
 # Keep a reference to builtins for safe exec
@@ -154,10 +155,75 @@ def display_text(line1="", line2="", line3="", line4=""):
 
 
 def beep_now(freq=1000, duration=0.1):
-    """Play a beep on the buzzer."""
+    """Play a beep on the buzzer (GPIO22)."""
     from display import beep
     beep(int(freq), float(duration))
     return f"Beep: {freq}Hz for {duration}s"
+
+
+def buzzer_play_tune(melody, beat_seconds=0.4, duty=32768):
+    """Play a melody on the buzzer (GPIO22).
+
+    melody: list of [note, beats] pairs. note is a note name
+    (C, D, E, F, G, A, B, C6, R) or a frequency in Hz. beats is
+    the length multiplier. R = rest (silence).
+    """
+    from display import beep
+    try:
+        beat_seconds = float(beat_seconds)
+    except Exception:
+        beat_seconds = 0.4
+
+    _NOTE_OFFSET = {
+        "C": 0, "C#": 1, "D": 2, "D#": 3, "E": 4,
+        "F": 5, "F#": 6, "G": 7, "G#": 8, "A": 9,
+        "A#": 10, "B": 11,
+    }
+
+    def _note_freq(note):
+        try:
+            if isinstance(note, (int, float)) and note:
+                return float(note)
+            s = str(note).upper().strip()
+            if s == "R":
+                return 0.0
+            if s in _NOTE_OFFSET:
+                octave = 4
+                name = s
+            else:
+                # Parse note+octave like G4, A4, C5, B5, G6, E6
+                name = s[0]
+                if len(s) >= 2 and s[1] == "#":
+                    name = s[:2]
+                    octave = int(s[2:]) if len(s) > 2 else 4
+                else:
+                    octave = int(s[1:]) if len(s) > 1 else 4
+            midi = (octave + 1) * 12 + _NOTE_OFFSET.get(name, 0)
+            return 440.0 * (2.0 ** ((midi - 69) / 12.0))
+        except Exception:
+            return 0.0
+
+    def _play():
+        for item in melody:
+            try:
+                note, beats = item
+            except Exception:
+                continue
+            beats = max(beats, 0)
+            duration = beat_seconds * beats
+            freq = _note_freq(note)
+            if freq:
+                beep(int(freq), duration * 0.9)
+            else:
+                utime.sleep(duration * 0.9)
+            utime.sleep(duration * 0.1)
+
+    try:
+        import _thread
+        _thread.start_new_thread(_play, ())
+    except Exception:
+        _play()
+    return "Tune playing"
 
 
 def exec_code(code):
@@ -281,7 +347,7 @@ TOOL_REGISTRY = {
     },
     "beep_now": {
         "name": "beep_now",
-        "description": "Play a beep on the buzzer. freq in Hz, duration in seconds.",
+        "description": "Play a short beep on the buzzer (GPIO22). freq in Hz, duration in seconds.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -292,9 +358,31 @@ TOOL_REGISTRY = {
         },
         "callable": beep_now,
     },
+    "buzzer_play_tune": {
+        "name": "buzzer_play_tune",
+        "description": "Play a melody on the buzzer (GPIO22). Prefer this over exec_code for tunes. melody is a list of [note, beats] pairs. note is a note name (C, D, E, F, G, A, B, C6, R) or Hz integer. beats is length multiplier. beat_seconds is duration of one beat in seconds.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "melody": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {"type": ["string", "number"]},
+                        "minItems": 2,
+                        "maxItems": 2,
+                    },
+                },
+                "beat_seconds": {"type": "number"},
+                "duty": {"type": "integer"},
+            },
+            "required": ["melody"],
+        },
+        "callable": buzzer_play_tune,
+    },
     "exec_code": {
         "name": "exec_code",
-        "description": "Execute MicroPython code on the device. Returns stdout or error.",
+        "description": "Execute MicroPython code on the device. Returns stdout or error. IMPORTANT: Do NOT use this for buzzer melodies — the buzzer is wired to GPIO22, not GPIO15. Use buzzer_play_tune instead.",
         "parameters": {
             "type": "object",
             "properties": {
