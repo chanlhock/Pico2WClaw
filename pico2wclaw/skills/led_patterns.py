@@ -6,6 +6,8 @@ Use this skill when the user asks for blinking patterns, SOS, heartbeat,
 or other LED signaling.
 """
 
+import time
+
 SKILL_INSTR = (
     "LED pattern skill. Use led_pattern when the user asks for "
     "SOS, heartbeat, candle, or any repeated LED pattern. "
@@ -15,13 +17,13 @@ SKILL_INSTR = (
 
 def _sos():
     """SOS Morse: ... --- ..."""
-    from led_blink import start, stop
+    from led_blink import start_period, stop
     stop()
     dots = 3
     dash = 3
     # S: dot dot dot
     for _ in range(dots):
-        start(period_ms=150)
+        start_period(period_ms=150)
         time.sleep(0.15)
         stop()
         time.sleep(0.15)
@@ -29,7 +31,7 @@ def _sos():
     time.sleep(0.3)
     # O: dash dash dash
     for _ in range(dash):
-        start(period_ms=450)
+        start_period(period_ms=450)
         time.sleep(0.45)
         stop()
         time.sleep(0.15)
@@ -37,7 +39,7 @@ def _sos():
     time.sleep(0.3)
     # S: dot dot dot
     for _ in range(dots):
-        start(period_ms=150)
+        start_period(period_ms=150)
         time.sleep(0.15)
         stop()
         time.sleep(0.15)
@@ -46,10 +48,10 @@ def _sos():
 
 def _heartbeat():
     """Two quick pulses like a heartbeat."""
-    from led_blink import start, stop
+    from led_blink import start_period, stop
     stop()
     for _ in range(2):
-        start(period_ms=120)
+        start_period(period_ms=120)
         time.sleep(0.12)
         stop()
         time.sleep(0.12)
@@ -60,12 +62,12 @@ def _heartbeat():
 def _candle():
     """Random flicker-like toggles for a short period."""
     import random
-    from led_blink import start, stop
+    from led_blink import start_period, stop
     stop()
     start_time = time.ticks_ms()
     while time.ticks_diff(time.ticks_ms(), start_time) < 3000:
         if random.getrandbits(1):
-            start(period_ms=40)
+            start_period(period_ms=40)
             time.sleep_ms(40)
             stop()
         time.sleep_ms(random.randint(30, 120))
