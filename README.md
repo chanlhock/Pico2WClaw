@@ -117,6 +117,18 @@ Raspberry Pi Pico 2 W board running Pico2WClaw Agentic Agent.
   <img src="resources/pico2wclaw-board.jpg" width="600" />
 </p>
 
+## :hourglass_flowing_sand: Chronology of Development Events
+- 27th Oct 2026: Started this Pico2WClaw development to create an Agentic AI Agent that would run on \
+resources limited Raspberry Pi Pico 2 W. \
+Gotten this idea when I was helping my son develop his Final Yer project. \
+- 29th Oct 2026: Completed debgging and the initial version of Pico2WClaw is fully functional as an autonomous Agentic AI Agent.
+- 30th Oct 2026: Added Skills file features for Pico2WClaw
+
+## :plate_with_cutlery: Incomplete Todo Tasks
+- [X] Add Skills file capability like other Agentic Agent, such as PicoClaw, Hermes, OpenClaw, etc
+- [ ] Add agent memory saving to Pi Pico 2 W internal flash instead of external SD card
+- [ ] Add a command /model which would display information on the provider and model of LLM used
+
 ## :coffee: Buy Me a Coffee
 If you appreciate my work, do support me by...<br>
 <a href="https://www.buymeacoffee.com/chanlhock" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-yellow.png" alt="Buy Me A Coffee" height="41" width="174"></a>
