@@ -119,12 +119,14 @@ Raspberry Pi Pico 2 W board running Pico2WClaw Agentic Agent.
 
 ## :hourglass_flowing_sand: Chronology of Development Events
 - 27th Oct 2026: Started this Pico2WClaw development to create an Agentic AI Agent that would run on resources limited Raspberry Pi Pico 2 W. \
-Gotten this idea when I was helping my son develop his Final Year project. His project was sending gestures to Hermes agent in his laptop.
-Hermes then send through BLE to ESP32 IoT device to turn on/off led.
+Gotten this idea when I was helping my son develop his Final Year project. His project was sending gestures prompt to Hermes agent in his laptop.
+Hermes then execute a Skills to send through BLE to ESP32 IoT device to turn on/off led.
 It was then I got the idea of why not directly put the Agentic AI Agent on the IoT device bypassing laptop Agent.
 Subsequently I did a check abd found that there is an open source development of such Agent for ESP32 S3 but there is no available agent for Raspberry Pi Pico yet.
 The Pycoclaw project can be found at: https://github.com/jetpax/pycoclaw
-- 29th Oct 2026: Completed debgging and the initial version of Pico2WClaw is fully functional as an autonomous Agentic AI Agent.
+- 29th Oct 2026: I used my Hermes agent to study Pycoclaw repository and create for me Micropython code that works for Raspberry Pi Pico 2 W.
+I prompted Hermes that it can remove some of the functionality like MCP, etc given that Raspberry Pi Pico 2 W resource of 512kB RAM and 4MB Flash.
+Completed debgging and the initial version of Pico2WClaw is fully functional as an autonomous Agentic AI Agent.
 - 30th Oct 2026: Added Skills file features for Pico2WClaw
 
 ## :plate_with_cutlery: Incomplete Todo Tasks
