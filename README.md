@@ -28,6 +28,7 @@
 Development of a small Autonomous AI Agent in Raspberry Pi Pico 2 W. \
 The Micropython program runs on Raspberry Pi Pico 2 W. \
 I called it Pico2WClaw. \
+
 It takes in prompt from Telegram and then sent to Deepseek LLM through API, the response from Deepseek LLM will call up tools on the device to turn on GPIO, read ADC from sensors connected to Raspberry Pi 2 W and also write code to execute on the microcontroller. 🤭 \
 Managed to get the initial version up and running with Hermes Agent help. One thing nice is that I can read all the Python code and understand how the agent is functioning. 😆🤗
 
@@ -124,6 +125,7 @@ Raspberry Pi Pico 2 W board running Pico2WClaw Agentic Agent.
 - 27th Oct 2026: Started this Pico2WClaw development to create an Agentic AI Agent that would run on resources limited Raspberry Pi Pico 2 W.<br>
 Gotten this idea when I was helping my son develop his Final Year project. His project was sending gestures prompt to Hermes agent in his laptop.
 Hermes then execute a Skills to send through BLE to ESP32 IoT device to turn on/off led.<br>
+
 It was then I got the idea of why not directly put the Agentic AI Agent on the IoT device bypassing laptop Agent.<br>
 Subsequently I did a search and found that there is an open source development of such Agent for ESP32 S3 but there is no available agent for Raspberry Pi Pico yet.<br>
 The Pycoclaw project can be found at: https://github.com/jetpax/pycoclaw<br>
