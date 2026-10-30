@@ -27,6 +27,8 @@
 ## :scroll: Description
 Development of a small Autonomous AI Agent in Raspberry Pi Pico 2 W. \
 The Micropython program runs on Raspberry Pi Pico 2 W.
+I called it Pico2WClaw.
+It takes in prompt from Telegram and then sent to Deepseek LLM through API, the response from Deepseek LLM will call up tools on the device to turn on Gpio, read ADC from sensors connected to Raspberry Pi 2 W and also write code to execute on the microcontroller. 🤭 Managed to get the initial version up and running with Hermes Agent help. One thing nice is that I can read all the Python code and understand how the agent is functioning. 😆🤗
 
 ## :computer: Development Platform
 I have tested on Raspberry Pi Pico 2 W running Thonny. It may also work on Raspberry Pi Pico W.
