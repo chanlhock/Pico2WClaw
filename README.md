@@ -100,7 +100,7 @@ WiFi RSSI: -59 dBm
 MicroPython: 3.4.0;
 > 
 ~~~~
-6. Raspberry Pi Pico 2 W is now ready and accepting command from Hermes Agent running on the MacBook Air 2017. 
+6. Raspberry Pi Pico 2 W is now ready and accepting command from either Telegram or Thonny serial cli. 
 
 ## :floppy_disk: Software Development:
 
