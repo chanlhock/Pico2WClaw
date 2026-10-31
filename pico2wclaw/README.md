@@ -14,12 +14,15 @@ This is a heavily trimmed-down port of the Pico2WClaw/OpenClaw concept:
 
 | File | Role |
 |---|---|
-| `boot.py` | Entry point — WiFi, NTP, starts agent |
-| `agent.py` | Agent loop — LLM call, tool execution, memory |
-| `memory.py` | File-backed keyword memory store |
-| `tools.py` | Tool registry: GPIO, ADC, PWM, I2C, exec, info, LED blink |
+| `boot.py` | Entry point — WiFi, NTP, starts agent + Telegram thread |
+| `agent.py` | Agent loop — LLM call, tool execution, memory, skills |
+| `tools.py` | Tool registry: GPIO, ADC, PWM, I2C, exec, info, LED blink, buzzer |
+| `pico_memory.py` | File-backed keyword memory store (default: `/memory/`) |
+| `skills_loader.py` | Loads `skills/*.py` skill files at agent startup |
 | `led_blink.py` | Persistent onboard-LED blink helper (`led_blink_start` by Hz, `start_blink` by ms period, `led_blink_stop`, `led_toggle`) |
 | `config.py` | WiFi SSID/password, LLM API key/model, Telegram bot token |
+| `ssd1306.py` | SSD1306 OLED I2C driver (required for display output) |
+| `display.py` | OLED + buzzer wrapper: status UI, boot splash, tone playback |
 
 ## Setup
 
@@ -27,11 +30,14 @@ This is a heavily trimmed-down port of the Pico2WClaw/OpenClaw concept:
    https://datasheets.raspberrypi.com/pico/getting-started-with-pico.pdf
    (use the **RP2350** UF2)
 
-2. Copy files to the Pico:
+2. Create a `skills/` folder on the Pico if you want to add custom skills.
+
+3. Copy files to the Pico:
    - Open **Thonny**
    - Select **MicroPython (RP2350)** as the interpreter
    - Save `config.py` to the Pico and edit your WiFi + API key + Telegram bot token
-   - Save `boot.py`, `agent.py`, `memory.py`, `tools.py`, `led_blink.py`, `ssd1306.py`, `display.py` to the Pico
+   - Save `boot.py`, `agent.py`, `pico_memory.py`, `tools.py`, `led_blink.py`, `ssd1306.py`, `display.py` to the Pico
+   - If you have custom skills, create the `skills/` folder and place your `.py` skill files inside
 
 3. Power-cycle the Pico. It will connect to WiFi and print a `>` prompt.
 
@@ -48,6 +54,8 @@ At the `>` prompt, type messages like:
 - `/tools` — list available tools
 - `/memory` — search memory
 - `/clear` — wipe history and memory
+- `/skills` — list loaded skills
+- `/skill_read <name>` — read a skill's instruction text
 - `/help` — show command help
 
 ## Onboard LED Blinking
@@ -76,6 +84,38 @@ If `TELEGRAM_BOT_TOKEN` is set in `config.py`, the agent polls Telegram every 3 
 
 Replies go through the same LLM + tools pipeline as serial input.
 
+## Skills
+
+Pico2WClaw supports extensible **MicroPython skills** placed in a `skills/` folder. Each skill is a `.py` module that exposes:
+
+- `SKILL_INSTR` — instruction text injected into the LLM system prompt
+- `TOOLS` — optional dict of tool definitions with callable references
+
+At startup, `agent.py` calls `skills_loader.load_skills()`, which scans `skills/*.py`, loads their instructions into the system prompt under `[Loaded skills]`, and merges any tool definitions into the main `TOOL_REGISTRY`.
+
+Available serial/Telegram commands:
+- `/skills` — list all loaded skill names
+- `/skill_read <name>` — read a skill's `SKILL_INSTR` text
+
+**Skill file contract:**
+```python
+SKILL_INSTR = "1-3 sentences describing when and how to use this skill."
+
+TOOLS = {
+    "tool_name": {
+        "description": "What it does.",
+        "parameters": {...},
+        "callable": some_function,
+    }
+}
+```
+
+**Important MicroPython constraints:**
+- Import every dependency at the top of the skill file (`time`, `machine`, etc.). The `exec()` namespace does not inherit the agent's globals.
+- Do not name skill files `memory.py`, `time.py`, `re.py`, etc. — they may shadow built-ins. Use project-prefixed names.
+- Avoid heavy stdlib: no `collections.Counter`, `re.findall`, `str.isalnum`, or `os.path`.
+- Skills are executed in an isolated `exec()` namespace. No side effects at import time.
+
 ## OLED + Buzzer
 
 The agent auto-initialises the SSD1306 display and buzzer on boot:
@@ -100,6 +140,8 @@ For best latency on Pico, use a fast/small model (e.g., `gemini-2.0-flash-lite`,
 
 ## Notes
 
-- The memory file is stored at `/sd/memory/transcript.txt`. Create an `/sd` directory if using external storage.
+- Memory is persisted to `/memory/transcript.txt` on the Pico's flash filesystem. No SD card is required.
+- Skills are loaded from the `skills/` directory at agent startup. Each skill is a MicroPython `.py` module with `SKILL_INSTR` and optional `TOOLS`.
+- Do not name files `memory.py`, `time.py`, `re.py`, etc. — they may shadow MicroPython built-ins. The memory module is named `pico_memory.py` to avoid this.
 - Tool calls are recursive up to `TOOL_CALL_MAX_ROUNDS` (default 4) per turn.
 - No sub-agents or cron — kept simple for 520 KB SRAM.
