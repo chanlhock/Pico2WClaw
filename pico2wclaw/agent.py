@@ -9,7 +9,7 @@ import time
 from machine import Pin, freq
 
 import config
-from memory import Memory
+from pico_memory import Memory
 from tools import get_tool_defs, call_tool
 from display import set_status, show_message, beep_success, beep_error
 
@@ -415,6 +415,8 @@ class Agent:
                         "  /tools  - list available tools\n"
                         "  /memory - search memory\n"
                         "  /clear  - wipe history and memory\n"
+                        "  /skills - list loaded skills\n"
+                        "  /skill_read <name> - read a skill's instructions\n"
                         "  /help   - show this help\n"
                         "Or send a question/request and I'll process it."
                     )
