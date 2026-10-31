@@ -15,9 +15,10 @@ Pico2WClaw consists of the following modules:
 | Module | File | Purpose |
 |--------|------|---------|
 | Boot | `boot.py` | WiFi connection, NTP sync, display splash, start agent + Telegram thread |
-| Agent | `agent.py` | Core loop, LLM client, tool orchestration, serial REPL, Telegram polling |
+| Agent | `agent.py` | Core loop, LLM client, tool orchestration, serial REPL, Telegram polling, skills loading |
 | Tools | `tools.py` | Tool registry, JSON schemas for LLM, hardware callables (GPIO, ADC, PWM, I2C, exec, display, buzzer, LED) |
-| Memory | `memory.py` | On-device keyword/TF-IDF memory, persisted to `/sd/memory/transcript.txt` |
+| Memory | `pico_memory.py` | On-device keyword/TF-IDF memory, persisted to `/memory/transcript.txt` |
+| Skills | `skills_loader.py` | Loads `skills/*.py` skill files at startup, injects instructions into LLM system prompt |
 | Display | `display.py` | SSD1306 OLED driver wrapper, buzzer tones, status UI, boot splash |
 | LED Blink | `led_blink.py` | Persistent onboard-LED blink using `machine.Timer(0)` with minimum-gap guard |
 | Config | `config.py` | WiFi credentials, LLM endpoint/model/key, Telegram token, agent name, system prompt |
@@ -37,7 +38,7 @@ User Input (Serial REPL or Telegram)
    |  agent.py   |  <-- Agent class
    |             |  - serial_loop(): non-blocking character read
    |             |  - telegram_loop(): poll getUpdates, dispatch messages
-   |             |  - _build_messages(): system + memory snippets + recent history
+   |             |  - _build_messages(): system + memory snippets + [Loaded skills] + recent history
    |             |  - run_turn(): LLM call -> tool execution -> final answer
    |             |  - _call_llm(): urequests POST to DeepSeek/OpenAI endpoint
    +-------------+
@@ -53,15 +54,27 @@ User Input (Serial REPL or Telegram)
          |
          | uses
          v
-   +-------------+
-   | memory.py   |  <-- simple TF-IDF, no embeddings
-   +-------------+
-         |
-         | uses
-         v
-   +-------------+
-   | display.py  |  <-- SSD1306 I2C + buzzer PWM
-   +-------------+
+         +-------------+
+         | pico_memory |  <-- simple TF-IDF, no embeddings
+         +-------------+
+               |
+               | uses
+               v
+         +-------------+
+         | skills_loader|  <-- loads skills/*.py
+         +-------------+
+               |
+               | uses
+               v
+         +-------------+
+         | skills/     |  <-- .py modules with SKILL_INSTR + TOOLS
+         +-------------+
+               |
+               | uses
+               v
+         +-------------+
+         | display.py  |  <-- SSD1306 I2C + buzzer PWM
+         +-------------+
          |
          | uses
          v
@@ -126,7 +139,7 @@ from agent import Agent
 agent = Agent()
 ```
 
-Creates the `Agent` object, which initializes `Memory()` (loads `/sd/memory/transcript.txt` if present), resets conversation history, and sets Telegram state variables.
+Creates the `Agent` object, which initializes `Memory()` (loads `/memory/transcript.txt` if present), resets conversation history, and sets Telegram state variables.
 
 ### 3.7 Telegram Thread (Background Polling)
 
@@ -212,12 +225,14 @@ It returns `True` if any message was processed, allowing `boot.py`'s `_tg_worker
 
 ### 4.4 Direct Telegram Commands
 
-To avoid LLM latency and API cost for simple queries, `/info`, `/tools`, `/memory`, and `/clear` are handled directly in `telegram_loop()`:
+To avoid LLM latency and API cost for simple queries, `/info`, `/tools`, `/memory`, `/clear`, `/skills`, and `/skill_read` are handled directly in `telegram_loop()`:
 
 - `/info`: calls `tools.device_info()` and sends the result.
 - `/tools`: lists all tool names and descriptions from `get_tool_defs()`.
 - `/memory`: searches memory and returns snippets.
 - `/clear`: clears in-memory history and on-device memory.
+- `/skills`: lists all loaded skill names from `skills_loader.get_skill_namespaces()`.
+- `/skill_read <name>`: returns `SKILL_INSTR` text for a specific skill file.
 
 ---
 
@@ -527,13 +542,13 @@ Both call `_blinker.start(period_ms)` under the hood.
 
 ---
 
-## 8. Memory System (`memory.py`)
+## 8. Memory System (`pico_memory.py`)
 
 Pico2WClaw uses a lightweight keyword/TF-IDF memory stored on the filesystem. No vector embeddings are used (too heavy for 520 KB SRAM).
 
 ### 8.1 Storage Format
 
-Memory is persisted to `/sd/memory/transcript.txt`. Each line is:
+Memory is persisted to `/memory/transcript.txt`. Each line is:
 
 ```
 role|text
@@ -607,9 +622,73 @@ Every `run_turn()` call:
 
 ---
 
-## 9. Display & Peripherals (`display.py`)
+## 9. Skills System (`skills_loader.py`)
 
-### 9.1 SSD1306 OLED
+Pico2WClaw supports extensible **MicroPython skills** placed in a `skills/` directory. Each skill is a plain `.py` module with no YAML or heavy stdlib dependencies.
+
+### 9.1 Skill File Contract
+
+Each skill module exposes two optional globals:
+
+```python
+SKILL_INSTR = "1-3 sentences describing when and how to use this skill."
+TOOLS = {
+    "tool_name": {
+        "description": "What it does.",
+        "parameters": {
+            "type": "object",
+            "properties": {...},
+            "required": [...],
+        },
+        "callable": some_function,
+    }
+}
+```
+
+### 9.2 Loading Flow
+
+1. `Agent.__init__()` calls `skills_loader.load_skills()`.
+2. `load_skills()` scans `skills/*.py` files, uses `exec()` to extract `SKILL_INSTR` and `TOOLS`.
+3. All `SKILL_INSTR` texts are concatenated and injected into the LLM system prompt under `[Loaded skills]`.
+4. All `TOOLS` callables are merged into `TOOL_REGISTRY` via `merge_skill_tools()`.
+5. `/skills` and `/skill_read <name>` commands are added to serial CLI and Telegram handling.
+
+### 9.3 Path Resolution
+
+`skills_loader._skill_dir()` resolves the skills directory:
+
+```python
+def _skill_dir():
+    try:
+        import os.path
+        return os.path.dirname(os.path.abspath(__file__)) + "/skills"
+    except AttributeError:
+        return "skills"
+```
+
+Stock MicroPython builds may lack `os.path`. The fallback returns `"skills"`, a CWD-relative path.
+
+### 9.4 Isolation & Constraints
+
+Skills execute in an isolated `exec()` namespace:
+- **No inherited globals:** `time`, `machine`, `random`, `os` are not shared from the agent. Import them inside the skill file.
+- **No side effects at import:** Skills are loaded at agent startup. Avoid network calls, infinite loops, or blocking operations at module top level.
+- **No heavy stdlib:** Avoid `collections.Counter`, `re.findall`, `str.isalnum`, or `os.path`.
+- **No built-in shadowing:** Do not name skill files `memory.py`, `time.py`, `re.py`, etc. Use project-prefixed names.
+
+### 9.5 Built-in Skills
+
+`skills/led_patterns.py` is included and provides:
+- `led_pattern(pattern)` — run an LED blink pattern on the onboard LED (`Pin("LED")`).
+- Patterns: `sos` (Morse code), `heartbeat` (double pulse), `candle` (flicker simulation).
+
+Each pattern function imports `time` internally and calls `led_blink.start_period(period_ms=...)` to drive the hardware timer.
+
+---
+
+## 10. Display & Peripherals (`display.py`)
+
+### 10.1 SSD1306 OLED
 
 - Controller: SSD1306 via I2C0
 - SDA: GP20, SCL: GP21
@@ -621,7 +700,7 @@ The OLED shows:
 - Status updates: "Ready", "Thinking", "Tool", "Error", "WiFi", "LLM"
 - User text via `display_text(line1, line2, line3, line4)`
 
-### 9.2 Buzzer
+### 10.2 Buzzer
 
 - Pin: GPIO22 (PWM)
 - Tones:
@@ -631,7 +710,7 @@ The OLED shows:
 
 ---
 
-## 10. End-to-End Examples
+## 11. End-to-End Examples
 
 ### Example 1: Telegram `/info` Command
 
@@ -733,7 +812,7 @@ The OLED shows:
 **Session 1:**
 - User: "My favorite sensor is the DS18B20 on pin 28."
 - LLM calls `memory.add("user", "My favorite sensor is the DS18B20 on pin 28")`.
-- Memory is saved to `/sd/memory/transcript.txt`.
+- Memory is saved to `/memory/transcript.txt`.
 
 **Session 2 (later):**
 - User: "Which sensor do I like?"
@@ -744,89 +823,111 @@ The OLED shows:
 
 ---
 
-## 11. Constraints & Design Decisions
+## 12. Constraints & Design Decisions
 
-### 11.1 Memory Constraints
+### 12.1 Memory Constraints
 
 - **520 KB SRAM:** LLM context is limited to 4000 tokens (`MAX_CONTEXT_TOKENS`). Response is capped at 512 tokens (`MAX_RESPONSE_TOKENS`). Tool-calling rounds are limited to 4 (`TOOL_CALL_MAX_ROUNDS`).
 - **No `collections.Counter`:** Replaced with `_counter()` using plain dicts.
 - **No `re.findall()`:** Tokenization uses a manual character loop.
 - **No `str.isalnum()`:** Character ranges `("a" <= ch <= "z")` and `("0" <= ch <= "9")` are used instead.
 
-### 11.2 Timing Constraints
+### 12.2 Timing Constraints
 
 - **Serial REPL blocking:** `sys.stdin.settimeout(0)` is unreliable on some MicroPython builds. A 20 ms timeout is used instead.
 - **LED blink accuracy:** `machine.Timer(0)` (hardware timer) is preferred over `machine.Timer(-1)` (virtual timer). A minimum-gap guard suppresses timer drift artifacts.
 - **Telegram thread isolation:** Telegram polling runs in `_thread` so its HTTP blocking never delays the serial REPL or timer callbacks.
 
-### 11.3 Network Constraints
+### 12.3 Network Constraints
 
 - **HTTP timeout:** Reduced to 2 seconds for Telegram polling to avoid blocking the background thread for too long.
 - **LLM timeout:** 30 seconds for DeepSeek API calls (enough for `deepseek-flash` on a good connection).
 - **Error suppression:** Expected network errors (`ETIMEDOUT`, `ECONNRESET`, `EHOSTUNREACH`) are suppressed in `telegram_loop()` to avoid log spam.
 
-### 11.4 Security Constraints
+### 12.4 Security Constraints
 
 - **`exec_code()` sandbox:** Only `_builtins_safe` is available. No `__import__`, no file I/O (other than memory save/load), no network access from executed code.
 - **Telegram access control:** `TELEGRAM_ALLOWED_USERS` can restrict which chat IDs are accepted. Empty list means all users are allowed.
+
+### 12.5 Skills Constraints
+
+- **Memory isolation:** `load_skills()` uses `exec()` in an isolated namespace. No globals from the agent module are shared. Skills must import `time`, `machine`, etc. internally.
+- **No heavy stdlib:** Skills cannot use `collections.Counter`, `re.findall`, `str.isalnum`, or `os.path`. These are unavailable on stock MicroPython builds.
+- **No built-in shadowing:** Skill file names must not collide with MicroPython built-in modules (`memory.py`, `time.py`, `re.py`, `os.py`).
+- **Disk footprint:** Each skill file must fit within the ~114 KB used flash budget. Keep skill modules minimal.
 - **No email deletion:** The agent has no email tools.
 
 ---
 
-## 12. Troubleshooting
+## 13. Troubleshooting
 
-### 12.1 LED Blink Stretched or Glitchy
+### 13.1 LED Blink Stretched or Glitchy
 
 - **Symptom:** LED period is 3–4x longer than requested, or visible on-off spikes.
 - **Cause:** Main loop blocked by `input()` or `urequests.get()`.
 - **Fix:** Use `sys.stdin.settimeout(0.02)` for serial input. Telegram polling must run in `_thread` or a `machine.Timer` fallback.
 
-### 12.2 CLI Prompt Missing After Telegram Output
+### 13.2 CLI Prompt Missing After Telegram Output
 
 - **Symptom:** After a Telegram message is processed, the serial REPL does not show `> ` until Enter is pressed.
 - **Cause:** The background `_thread` Telegram path bypasses the `_telegram_due` flag that `serial_loop()` monitors.
 - **Fix:** `boot.py`'s `_tg_worker` prints `> ` directly after `telegram_loop()` returns `True`.
 
-### 12.3 DeepSeek Auth Failures
+### 13.3 DeepSeek Auth Failures
 
 - **Symptom:** "Authentication Fails (governor)" for non-command Telegram messages.
 - **Cause:** Invalid, expired, or rate-limited API key. Or the placeholder key is still in `config.py`.
 - **Fix:** Verify `config.LLM_API_KEY` is a real DeepSeek key. Check quota at platform.deepseek.com.
 
-### 12.4 `/info` Hang on Serial
+### 13.4 `/info` Hang on Serial
 
 - **Symptom:** Typing `/info` in serial REPL causes the prompt to hang.
 - **Cause:** `sys.stdin.settimeout(0)` returns `None` for newlines on some MicroPython builds.
 - **Fix:** Use `sys.stdin.settimeout(0.02)` with a 300 ms auto-submit fallback for incomplete lines.
 
-### 12.5 Memory Not Persisting
+### 13.5 Memory Not Persisting
 
 - **Symptom:** Memory is empty after reboot.
 - **Cause:** `/sd` directory does not exist or is not writable. The Pico 2 W must have a microSD card mounted, or the storage path must be changed to flash.
-- **Fix:** Ensure a microSD card is inserted and formatted as FAT32. Check `memory.py`'s `storage_dir` path.
+- **Fix:** Check `pico_memory.py`'s `storage_dir` path and ensure the `/memory` directory exists and is writable.
+
+### 13.6 Skills Not Loading
+
+- **Symptom:** `/skills` returns empty list or `ImportError` on boot.
+- **Cause:** Skill file name shadows a built-in module (`memory.py`, `time.py`, `re.py`), or the skill file is missing required imports (`time`, `machine`).
+- **Fix:** Rename the file to avoid built-in collisions. Ensure every dependency is imported at the top of the skill file. Verify with `python3 -m py_compile skills/<name>.py`.
+
+### 13.7 Skill Tool Execution Errors
+
+- **Symptom:** A skill tool fails with `unexpected keyword argument` or `NameError: name 'time' isn't defined`.
+- **Cause:** The tool callable signature does not match the `parameters` schema in `TOOLS`, or the skill file omitted an import.
+- **Fix:** Align callable signatures with the JSON schema exactly. Import all used modules inside the skill file.
 
 ---
 
-## 13. File Structure
+## 14. File Structure
 
 ```
 pico2wclaw/
 ├── boot.py           # Boot script: WiFi, NTP, agent, Telegram thread
 ├── agent.py          # Core agent: LLM client, tool loop, serial + Telegram
 ├── tools.py          # Tool registry, JSON schemas, hardware callables
-├── memory.py         # TF-IDF memory, filesystem persistence
+├── pico_memory.py    # TF-IDF memory, filesystem persistence
+├── skills_loader.py  # Loads skills/*.py skill files at startup
 ├── display.py        # OLED + buzzer UI, status, boot splash
 ├── led_blink.py      # Persistent LED blink via hardware timer
 ├── config.py         # WiFi, LLM, Telegram, agent settings
 ├── ssd1306.py        # SSD1306 OLED driver (I2C)
+├── skills/           # Optional skill modules
+│   └── led_patterns.py
 └── README.md         # Setup instructions
 ```
 
-Upload all `.py` files to the Pico 2 W using Thonny IDE or `mpremote`. Ensure `ssd1306.py` is present in the same directory.
+Upload all `.py` files to the Pico 2 W using Thonny IDE or `mpremote`. Ensure `ssd1306.py` is present in the same directory. If you add custom skills, create the `skills/` directory and place `.py` skill files inside.
 
 ---
 
-## 14. Summary
+## 15. Summary
 
 Pico2WClaw is a complete embedded agentic AI system that fits within the Raspberry Pi Pico 2 W's resource constraints. It achieves this through:
 
