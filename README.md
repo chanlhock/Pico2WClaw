@@ -134,10 +134,11 @@ I also prompted Hermes that it can remove some of the functionality like MCP, cr
 Completed debugging and the initial version of Pico2WClaw is fully functional as an autonomous Agentic AI Agent.
 The DeepSeek LLM can generate Python code to execute on Pico2WClaw playing tune on the buzzer but it crashed with timeout error half way.
 - 30th Oct 2026: Fixed the play tune to buzzer issues. In addition, added Skills file features for Pico2WClaw
+- 31st Oct 2026: With Hermes help, fixed the memory writing to/loading from sdcard instead of Pi Pico 2 W flash memory. README.md and 
 
 ## :plate_with_cutlery: Incomplete Todo Tasks
 - [X] Add Skills file capability like other Agentic Agent, such as PicoClaw, Hermes, OpenClaw, etc
-- [ ] Add agent memory saving to Pi Pico 2 W internal flash instead of external SD card
+- [X] Add agent memory saving to Pi Pico 2 W internal flash instead of external SD card
 - [ ] Add a command /model which would display information on the provider and model of LLM used
 
 ## :coffee: Buy Me a Coffee
