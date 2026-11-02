@@ -148,6 +148,7 @@ The DeepSeek LLM can generate Python code to execute on Pico2WClaw playing tune 
 - [ ] Add a command /model which would display information on the provider and model of LLM used
 - [ ] Add a cron like scheduler function that user can set for device to perform a task at certain time of day or interval every hour. 
 - [ ] Add a serial cli and Telegram command of /exit so that the Pico2WClaw main program can stop. This is good for debugging in case device cannot stop even after soft reset.
+- [ ] Add the ability for Pico2WClaw to recover and reconnect back when WiFi is loss/disconnected.
 
 ## :coffee: Buy Me a Coffee
 If you appreciate my work, do support me by...<br>
