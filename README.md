@@ -140,7 +140,9 @@ The DeepSeek LLM can generate Python code to execute on Pico2WClaw playing tune 
 - 30th Oct 2026: Fixed the play tune to buzzer issues. In addition, added Skills file features for Pico2WClaw
 - 31st Oct 2026: With Hermes help, fixed the memory writing to/loading from sdcard instead of Pi Pico 2 W flash memory. <br>
 [Pico2WClaw README](/pico2wclaw/README.md) and [Pico2WClaw Docs](/resources/pico2wclaw_docs.md) had both been updated.
-- 1st Nov 2026: 
+- 2nd Nov 2026: After spending more than 2 days trying to get Hermes to implement the cron job features. 
+First few attempts failed and after many iterations I reversed back to the old working code.
+Then started all over again using larger LLM model with reasining set high. Managed to get a working version with cron job feature.
 
 ## :plate_with_cutlery: Incomplete Todo Tasks
 - [X] Add Skills file capability like other Agentic Agent, such as PicoClaw, Hermes, OpenClaw, etc
