@@ -35,3 +35,10 @@ MAX_RESPONSE_TOKENS = 512
 TOOL_CALL_MAX_ROUNDS = 4    # safety cap per turn
 MEMORY_MAX_SNIPPETS = 5
 MEMORY_MAX_CHARS = 1500
+
+# Cron scheduler (interval-based monitoring -> Telegram)
+CRON_ENABLED = True
+CRON_TICK_MS = 1000
+CRON_DEFAULT_CHAT_ID = None  # falls back to first TELEGRAM_ALLOWED_USERS entry
+
+
