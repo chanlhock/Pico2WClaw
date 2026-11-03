@@ -129,6 +129,37 @@ class Agent:
         )
         return messages
 
+    def _provider_name(self):
+        url = (getattr(config, "LLM_BASE_URL", "") or "").lower()
+        if "deepseek" in url:
+            return "DeepSeek"
+        if "api.openai.com" in url:
+            return "OpenAI"
+        if "generativelanguage.googleapis.com" in url:
+            return "Google Gemini"
+        if "groq.com" in url:
+            return "Groq"
+        if "openrouter.ai" in url:
+            return "OpenRouter"
+        if "together" in url:
+            return "Together AI"
+        if "11434" in url or "localhost" in url or "127.0.0.1" in url:
+            return "Ollama (local)"
+        # Fallback: host only
+        try:
+            host = url.split("//", 1)[-1].split("/", 1)[0]
+        except Exception:
+            host = url
+        return "OpenAI-compatible ({0})".format(host or "unknown")
+
+    def _llm_info(self):
+        return (
+            "Provider: {0}\nModel: {1}\nEndpoint: {2}".format(
+                self._provider_name(),
+                getattr(config, "LLM_MODEL", "?"),
+                getattr(config, "LLM_BASE_URL", "?"),
+            )
+        )
     # ------------------------------------------------------------------
     # Single agent turn (handles recursive tool calling)
     # ------------------------------------------------------------------
@@ -224,7 +255,7 @@ class Agent:
         print("=" * 90)
         print(f"  {config.AGENT_NAME} ready.")
         print("  Type a message and press Enter.")
-        print("  Commands: /info, /memory, /clear, /tools, /help, /cron, /exit, /skills, /skill_read <name>")
+        print("  Commands: /info, /memory, /clear, /tools, /help, /cron, /model, /exit, /skills, /skill_read <name>")
         print("=" * 90)
         self.running = True
 
@@ -356,6 +387,7 @@ class Agent:
                     "  /skill_read <name> - read a skill's instructions\n"
                     "  /cron   - manage cron jobs (list/add/del/on/off)\n"
                     "  /exit   - stop the agent\n"
+                    "  /model  - show LLM provider and model\n"
                     "  /help   - show this help\n"
                     "Or type a question/request and press Enter to chat with the agent."
                 )
@@ -363,6 +395,9 @@ class Agent:
             if user_input == "/exit":
                 print("[agent] stopping...")
                 self.stop()
+                return
+            if user_input == "/model":
+                print(self._llm_info())
                 return
             if user_input == "/skills":
                 names = sorted(self._skill_namespaces.keys())
@@ -561,6 +596,7 @@ class Agent:
                         "  /skill_read <name> - read a skill's instructions\n"
                         "  /cron   - manage cron jobs (list/add/del/on/off)\n"
                         "  /exit   - stop the agent\n"
+                        "  /model  - show LLM provider and model\n"
                         "  /help   - show this help\n"
                         "Or send a question/request and I'll process it."
                     )
@@ -640,6 +676,8 @@ class Agent:
                 elif text == "/exit":
                     self.stop()
                     reply = "Stopping agent."
+                elif text == "/model":
+                    reply = self._llm_info()
                 elif text == "/memory":
                     snippets = self.memory.search(text, max_results=10)
                     reply = "\n".join(f"- {s[:100]}" for s in snippets) if snippets else "(memory empty)"
