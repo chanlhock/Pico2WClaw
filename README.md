@@ -170,6 +170,7 @@ The DeepSeek LLM can generate Python code to execute on Pico2WClaw playing tune 
 - 2nd Nov 2026: After spending more than 2 days trying to get Hermes to implement the cron job features. 
 First few attempts failed and after many iterations I reverted back to the old working code.
 Then started all over again using larger LLM model with reasoning set high. Managed to get a working version with cron job feature.
+- 3rd Nov 2026: Few hours of testing showed that the cron jobs are functioning as defined. Checked in the new code to Github.
 
 ## :plate_with_cutlery: Incomplete Todo Tasks
 - [X] Add Skills file capability like other Agentic Agent, such as PicoClaw, Hermes, OpenClaw, etc
