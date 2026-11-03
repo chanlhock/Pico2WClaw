@@ -82,15 +82,19 @@ def main():
     if getattr(config, "TELEGRAM_BOT_TOKEN", ""):
         try:
             import _thread
+            agent._telegram_alive = True
             def _tg_worker():
-                while True:
-                    try:
-                        had_work = agent.telegram_loop()
-                        if had_work:
-                            print("> ", end="")
-                    except Exception as e:
-                        print("[telegram] thread error:", e)
-                    time.sleep(1)
+                try:
+                    while getattr(agent, "_telegram_running", True):
+                        try:
+                            had_work = agent.telegram_loop()
+                            if had_work:
+                                print("> ", end="")
+                        except Exception as e:
+                            print("[telegram] thread error:", e)
+                        time.sleep(1)
+                finally:
+                    agent._telegram_alive = False
             _thread.start_new_thread(_tg_worker, ())
             print("[boot] Telegram thread started")
         except (ImportError, OSError) as e:
@@ -98,14 +102,23 @@ def main():
             # Fallback: timer-based polling in main loop
             try:
                 tg_timer = machine.Timer(-1)
+                agent._tg_timer = tg_timer
                 def _tg_tick(_t):
-                    agent._telegram_due = True
+                    if getattr(agent, "_telegram_running", True):
+                        agent._telegram_due = True
                 tg_timer.init(period=3000, mode=machine.Timer.PERIODIC, callback=_tg_tick)
                 print("[boot] Telegram timer fallback started")
             except Exception as e2:
                 print("[boot] Telegram poller failed:", e2)
 
     agent.serial_loop()
+    agent.stop()
+    # Wait briefly for the Telegram worker thread to actually exit.
+    for _ in range(80):
+        if not getattr(agent, "_telegram_alive", False):
+            break
+        time.sleep(0.1)
+    print("[agent] stopped.")
 
 
 try:

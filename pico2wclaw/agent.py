@@ -20,10 +20,21 @@ class Agent:
         self.history = []  # in-memory conversation history
         self.running = False
         self._telegram_offset = 0
+        # Persist offset across reboots so stale updates (e.g. /exit) are
+        # not re-processed after a restart.
+        try:
+            with open("/telegram_offset.txt", "r") as f:
+                self._telegram_offset = int(f.read().strip() or 0)
+        except Exception:
+            self._telegram_offset = 0
         self._telegram_due = False
         self._prompt_printed = True  # shared with telegram_loop for prompt restore
         self._skill_instrs = []
         self._skill_namespaces = {}
+        # Shutdown coordination (used by /exit)
+        self._telegram_running = True
+        self._telegram_alive = False
+        self._tg_timer = None
         try:
             from skills_loader import load_skills, get_skill_namespaces
             _extra_tools, self._skill_instrs = load_skills()
@@ -193,6 +204,17 @@ class Agent:
         set_status("ready", beep_type="click")
         return final_answer
 
+    def stop(self):
+        """Signal the agent (main loop + Telegram worker) to stop."""
+        self.running = False
+        self._telegram_running = False
+        t = getattr(self, "_tg_timer", None)
+        if t is not None:
+            try:
+                t.deinit()
+            except Exception:
+                pass
+
     # ------------------------------------------------------------------
     # Serial REPL loop (short-blocking input — input() blocks the main
     # thread and prevents hardware timer callbacks from firing on time,
@@ -202,7 +224,7 @@ class Agent:
         print("=" * 90)
         print(f"  {config.AGENT_NAME} ready.")
         print("  Type a message and press Enter.")
-        print("  Commands: /info, /memory, /clear, /tools, /help, /cron, /skills, /skill_read <name>")
+        print("  Commands: /info, /memory, /clear, /tools, /help, /cron, /exit, /skills, /skill_read <name>")
         print("=" * 90)
         self.running = True
 
@@ -333,9 +355,14 @@ class Agent:
                     "  /skills - list loaded skills\n"
                     "  /skill_read <name> - read a skill's instructions\n"
                     "  /cron   - manage cron jobs (list/add/del/on/off)\n"
+                    "  /exit   - stop the agent\n"
                     "  /help   - show this help\n"
                     "Or type a question/request and press Enter to chat with the agent."
                 )
+                return
+            if user_input == "/exit":
+                print("[agent] stopping...")
+                self.stop()
                 return
             if user_input == "/skills":
                 names = sorted(self._skill_namespaces.keys())
@@ -501,6 +528,11 @@ class Agent:
             upd_id = upd.get("update_id", 0)
             if upd_id:
                 self._telegram_offset = upd_id + 1
+                try:
+                    with open("/telegram_offset.txt", "w") as f:
+                        f.write(str(self._telegram_offset))
+                except Exception:
+                    pass
             msg = upd.get("message") or upd.get("channel_post")
             if not msg:
                 continue
@@ -528,6 +560,7 @@ class Agent:
                         "  /skills - list loaded skills\n"
                         "  /skill_read <name> - read a skill's instructions\n"
                         "  /cron   - manage cron jobs (list/add/del/on/off)\n"
+                        "  /exit   - stop the agent\n"
                         "  /help   - show this help\n"
                         "Or send a question/request and I'll process it."
                     )
@@ -604,6 +637,9 @@ class Agent:
                                 reply = "Job #{0} not found.".format(jid)
                         except ValueError:
                             reply = "Usage: /cron on|off <id>"
+                elif text == "/exit":
+                    self.stop()
+                    reply = "Stopping agent."
                 elif text == "/memory":
                     snippets = self.memory.search(text, max_results=10)
                     reply = "\n".join(f"- {s[:100]}" for s in snippets) if snippets else "(memory empty)"

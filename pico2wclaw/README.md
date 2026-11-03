@@ -18,6 +18,7 @@ This is a heavily trimmed-down port of the Pico2WClaw/OpenClaw concept:
 | `agent.py` | Agent loop — LLM call, tool execution, memory, skills |
 | `tools.py` | Tool registry: GPIO, ADC, PWM, I2C, exec, info, LED blink, buzzer |
 | `pico_memory.py` | File-backed keyword memory store (default: `/memory/`) |
+| `pico_cron.py` | Interval cron scheduler — GPIO/ADC monitoring + Telegram status (persisted in `/cron/jobs.txt`) |
 | `skills_loader.py` | Loads `skills/*.py` skill files at agent startup |
 | `led_blink.py` | Persistent onboard-LED blink helper (`led_blink_start` by Hz, `start_blink` by ms period, `led_blink_stop`, `led_toggle`) |
 | `config.py` | WiFi SSID/password, LLM API key/model, Telegram bot token |
@@ -36,7 +37,7 @@ This is a heavily trimmed-down port of the Pico2WClaw/OpenClaw concept:
    - Open **Thonny**
    - Select **MicroPython (RP2350)** as the interpreter
    - Save `config.py` to the Pico and edit your WiFi + API key + Telegram bot token
-   - Save `boot.py`, `agent.py`, `pico_memory.py`, `tools.py`, `led_blink.py`, `ssd1306.py`, `display.py` to the Pico
+   - Save `boot.py`, `agent.py`, `pico_memory.py`, `tools.py`, `led_blink.py`, `ssd1306.py`, `display.py`, `skills_loader.py`, `pico_cron.py` to the Pico
    - If you have custom skills, create the `skills/` folder and place your `.py` skill files inside
 
 3. Power-cycle the Pico. It will connect to WiFi and print a `>` prompt.
@@ -57,6 +58,8 @@ At the `>` prompt, type messages like:
 - `/skills` — list loaded skills
 - `/skill_read <name>` — read a skill's instruction text
 - `/help` — show command help
+- `/cron` — manage cron jobs (`list`/`add`/`del`/`on`/`off`)
+- `/exit` — stop the agent (serial + Telegram)
 
 ## Onboard LED Blinking
 
@@ -98,6 +101,7 @@ Available serial/Telegram commands:
 - `/skill_read <name>` — read a skill's `SKILL_INSTR` text
 - `/cron` — manage cron jobs (`list`/`add`/`del`/`on`/`off`)
 - `/cron add <gpio|adc> <pin> <interval_ms> [chat_id] [message...]`
+- `/exit` — stop the agent (serial + Telegram)
 
 ### Cron examples
 ```text
