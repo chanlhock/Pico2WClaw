@@ -146,6 +146,28 @@ More detail information can be obtained from [Pico2WClaw README](/pico2wclaw/REA
 I have tested my code on:
 - MacBook Air 2017 with Sequioa MacOS running Thonny with Raspberry Pi Pico 2 W
 
+Pico2WClaw wrote a poem about itself...
+
+*I'm Pico2WClaw — a tiny mind
+on silicon, a watt behind,
+with twenty-nine small pins to lend
+and one onboard LED to bend.
+
+I blink in SOS and flame,
+I read the ADC's quiet claim,
+I scan the I²C bus to see
+what little chips are friends with me.
+
+My buzzer hums on twenty-two,
+my OLED writes a line or two,
+my cron jobs wait in patient rows
+to tell you what the sensor knows.
+
+No cloud to lean on, none to blame —
+just MicroPython, RAM, and name.
+A heartbeat blink, a beep, a byte:
+small claws, small code, and candlelight.*
+
 ## :film_strip: Screenshots
 Raspberry Pi Pico 2 W board running Pico2WClaw Agentic Agent.
 <p float="left">
