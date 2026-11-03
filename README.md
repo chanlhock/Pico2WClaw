@@ -175,11 +175,11 @@ Then started all over again using larger LLM model with reasoning set high. Mana
 ## :plate_with_cutlery: Incomplete Todo Tasks
 - [X] Add Skills file capability like other Agentic Agent, such as PicoClaw, Hermes, OpenClaw, etc
 - [X] Add agent memory saving to Pi Pico 2 W internal flash instead of external SD card
-- [ ] Add a command /model which would display information on the provider and model of LLM used
 - [X] Add a cron like scheduler function that user can set for device to perform a task at certain time of day or interval every hour. 
 - [ ] Add a serial cli and Telegram command of /exit so that the Pico2WClaw main program can stop. This is good for debugging in case device cannot stop even after soft reset.
 - [ ] Add the ability for Pico2WClaw to recover and reconnect back when WiFi is loss/disconnected.
 - [ ] Add Watchdog in order for whole system to recover in the event Pico2WClaw gets into hung conditions.
+- [ ] Add a command /model which would display information on the provider and model of LLM used
 
 ## :coffee: Buy Me a Coffee
 If you appreciate my work, do support me by...<br>
