@@ -34,6 +34,16 @@ class Agent:
         except Exception as e:
             print("[skills] init failed:", e)
 
+        # Cron scheduler (interval-based monitoring -> Telegram)
+        self.cron = None
+        self._cron_last_tick = time.ticks_ms()
+        try:
+            from pico_cron import CronStore, set_store
+            self.cron = CronStore(self)
+            set_store(self.cron)
+        except Exception as e:
+            print("[cron] init failed:", e)
+
     # ------------------------------------------------------------------
     # LLM API client (OpenAI-compatible)
     # ------------------------------------------------------------------
@@ -189,29 +199,44 @@ class Agent:
     # which stretches LED blink periods and causes spikes.)
     # ------------------------------------------------------------------
     def serial_loop(self):
-        print("=" * 50)
+        print("=" * 90)
         print(f"  {config.AGENT_NAME} ready.")
         print("  Type a message and press Enter.")
-        print("  Commands: /info, /memory, /clear, /tools, /skills, /skill_read <name>")
-        print("=" * 50)
+        print("  Commands: /info, /memory, /clear, /tools, /help, /cron, /skills, /skill_read <name>")
+        print("=" * 90)
         self.running = True
 
         # Use a short blocking timeout. Zero-timeout reads are unreliable
         # on some MicroPython builds and can return None for real
         # keystrokes/newlines. A 20 ms timeout keeps the loop responsive
         # enough for timer callbacks to stay on schedule.
+        # Non-blocking stdin wait so the main loop (cron tick, Telegram
+        # fallback) keeps running even when no key is pressed. MicroPython's
+        # sys.stdin.settimeout() is not reliably honored on all ports, which
+        # previously starved the loop and prevented cron from firing on idle.
+        _stdin_poller = None
         try:
-            sys.stdin.settimeout(0.02)
-        except AttributeError:
-            try:
-                sys.stdin.buffer.settimeout(0.02)
-            except Exception:
-                pass
+            import uselect
+            _stdin_poller = uselect.poll()
+            _stdin_poller.register(sys.stdin, uselect.POLLIN)
+        except Exception:
+            _stdin_poller = None
 
         _line = ""
         print("> ", end="")
         _last_char_ms = time.ticks_ms()
         while self.running:
+            # Cron tick (main thread only; gated to avoid per-iteration cost)
+            try:
+                import config as _cfg
+                if self.cron is not None and getattr(_cfg, "CRON_ENABLED", False):
+                    now_ms = time.ticks_ms()
+                    if time.ticks_diff(now_ms, self._cron_last_tick) >= getattr(_cfg, "CRON_TICK_MS", 1000):
+                        self._cron_last_tick = now_ms
+                        self.cron.tick(now_ms)
+            except Exception as e:
+                print("[cron] tick error:", e)
+
             # Telegram check (timer fallback path)
             if self._telegram_due:
                 self._telegram_due = False
@@ -229,9 +254,23 @@ class Agent:
             # Short-blocking character read
             ch = None
             try:
-                ch = sys.stdin.read(1)
-                if ch == "":
-                    ch = None
+                if _stdin_poller is not None:
+                    if _stdin_poller.poll(50):
+                        ch = sys.stdin.read(1)
+                        if ch == "":
+                            ch = None
+                else:
+                    # Fallback for builds without uselect (status quo).
+                    try:
+                        sys.stdin.settimeout(0.02)
+                    except AttributeError:
+                        try:
+                            sys.stdin.buffer.settimeout(0.02)
+                        except Exception:
+                            pass
+                    ch = sys.stdin.read(1)
+                    if ch == "":
+                        ch = None
             except (EOFError, OSError):
                 ch = None
             except Exception:
@@ -293,6 +332,7 @@ class Agent:
                     "  /clear  - wipe history and memory\n"
                     "  /skills - list loaded skills\n"
                     "  /skill_read <name> - read a skill's instructions\n"
+                    "  /cron   - manage cron jobs (list/add/del/on/off)\n"
                     "  /help   - show this help\n"
                     "Or type a question/request and press Enter to chat with the agent."
                 )
@@ -333,6 +373,76 @@ class Agent:
                     print(
                         f"  {t['function']['name']}: {t['function']['description']}"
                     )
+                return
+            if user_input == "/cron" or user_input == "/cron list":
+                if self.cron is None:
+                    print("Cron unavailable.")
+                    return
+                jobs = self.cron.list_jobs()
+                if not jobs:
+                    print("No cron jobs.")
+                    return
+                for j in jobs:
+                    print("  #{0} {1} pin={2} every {3}ms chat={4} {5}".format(
+                        j["id"], j["type"], j["pin"], j["interval_ms"],
+                        j["chat_id"], "ON" if j["enabled"] else "OFF"))
+                return
+            if user_input.startswith("/cron add "):
+                if self.cron is None:
+                    print("Cron unavailable.")
+                    return
+                parts = user_input[len("/cron add "):].split()
+                if len(parts) < 3:
+                    print("Usage: /cron add <gpio|adc> <pin> <interval_ms> [chat_id] [message...]")
+                    return
+                jtype = parts[0]
+                try:
+                    pin = int(parts[1])
+                    interval = int(parts[2])
+                except ValueError:
+                    print("pin and interval must be integers")
+                    return
+                chat_id = None
+                msg_parts = parts[3:]
+                if msg_parts:
+                    try:
+                        chat_id = int(msg_parts[0])
+                        msg_parts = msg_parts[1:]
+                    except ValueError:
+                        pass
+                template = " ".join(msg_parts) if msg_parts else "{value}"
+                jid = self.cron.add_job(jtype, pin, interval, chat_id, template)
+                print("Added cron job #{0}".format(jid))
+                return
+            if user_input.startswith("/cron del "):
+                if self.cron is None:
+                    print("Cron unavailable.")
+                    return
+                try:
+                    jid = int(user_input[len("/cron del "):].strip())
+                except ValueError:
+                    print("Usage: /cron del <id>")
+                    return
+                if self.cron.remove_job(jid):
+                    print("Removed job #{0}".format(jid))
+                else:
+                    print("Job #{0} not found.".format(jid))
+                return
+            if user_input.startswith("/cron on ") or user_input.startswith("/cron off "):
+                if self.cron is None:
+                    print("Cron unavailable.")
+                    return
+                on = user_input.startswith("/cron on ")
+                try:
+                    tail = user_input[9:].strip() if on else user_input[10:].strip()
+                    jid = int(tail)
+                except ValueError:
+                    print("Usage: /cron on|off <id>")
+                    return
+                if self.cron.set_enabled(jid, on):
+                    print("Job #{0} {1}".format(jid, "enabled" if on else "disabled"))
+                else:
+                    print("Job #{0} not found.".format(jid))
                 return
         except Exception as e:
             import sys as _sys
@@ -417,6 +527,7 @@ class Agent:
                         "  /clear  - wipe history and memory\n"
                         "  /skills - list loaded skills\n"
                         "  /skill_read <name> - read a skill's instructions\n"
+                        "  /cron   - manage cron jobs (list/add/del/on/off)\n"
                         "  /help   - show this help\n"
                         "Or send a question/request and I'll process it."
                     )
@@ -426,6 +537,73 @@ class Agent:
                     for t in get_tool_defs():
                         lines.append(f"{t['function']['name']}: {t['function']['description']}")
                     reply = "\n".join(lines)
+                elif text == "/cron" or text == "/cron list":
+                    if self.cron is None:
+                        reply = "Cron unavailable."
+                    else:
+                        jobs = self.cron.list_jobs()
+                        if not jobs:
+                            reply = "No cron jobs."
+                        else:
+                            lines = []
+                            for j in jobs:
+                                lines.append("#{0} {1} pin={2} every {3}ms chat={4} {5}".format(
+                                    j["id"], j["type"], j["pin"], j["interval_ms"],
+                                    j["chat_id"], "ON" if j["enabled"] else "OFF"))
+                            reply = "\n".join(lines)
+                elif text.startswith("/cron add "):
+                    if self.cron is None:
+                        reply = "Cron unavailable."
+                    else:
+                        parts = text[len("/cron add "):].split()
+                        if len(parts) < 3:
+                            reply = "Usage: /cron add <gpio|adc> <pin> <interval_ms> [chat_id] [message...]"
+                        else:
+                            try:
+                                pin = int(parts[1])
+                                interval = int(parts[2])
+                            except ValueError:
+                                reply = "pin and interval must be integers"
+                                parts = []
+                            if parts:
+                                jtype = parts[0]
+                                chat_id = None
+                                msg_parts = parts[3:]
+                                if msg_parts:
+                                    try:
+                                        chat_id = int(msg_parts[0])
+                                        msg_parts = msg_parts[1:]
+                                    except ValueError:
+                                        pass
+                                template = " ".join(msg_parts) if msg_parts else "{value}"
+                                jid = self.cron.add_job(jtype, pin, interval, chat_id, template)
+                                reply = "Added cron job #{0}".format(jid)
+                elif text.startswith("/cron del "):
+                    if self.cron is None:
+                        reply = "Cron unavailable."
+                    else:
+                        try:
+                            jid = int(text[len("/cron del "):].strip())
+                            if self.cron.remove_job(jid):
+                                reply = "Removed job #{0}".format(jid)
+                            else:
+                                reply = "Job #{0} not found.".format(jid)
+                        except ValueError:
+                            reply = "Usage: /cron del <id>"
+                elif text.startswith("/cron on ") or text.startswith("/cron off "):
+                    if self.cron is None:
+                        reply = "Cron unavailable."
+                    else:
+                        on = text.startswith("/cron on ")
+                        try:
+                            tail = text[9:].strip() if on else text[10:].strip()
+                            jid = int(tail)
+                            if self.cron.set_enabled(jid, on):
+                                reply = "Job #{0} {1}".format(jid, "enabled" if on else "disabled")
+                            else:
+                                reply = "Job #{0} not found.".format(jid)
+                        except ValueError:
+                            reply = "Usage: /cron on|off <id>"
                 elif text == "/memory":
                     snippets = self.memory.search(text, max_results=10)
                     reply = "\n".join(f"- {s[:100]}" for s in snippets) if snippets else "(memory empty)"

@@ -46,9 +46,9 @@ def main():
     from display import boot_splash, set_status
     boot_splash()
 
-    print("\n" + "=" * 50)
+    print("\n" + "=" * 90)
     print("  Pico2WClaw booting...")
-    print("=" * 50)
+    print("=" * 90)
 
     wlan = connect_wifi(config.WIFI_SSID, config.WIFI_PASSWORD)
 
@@ -71,6 +71,11 @@ def main():
     from agent import Agent
     agent = Agent()
     set_status("ready", beep_type="click")
+    try:
+        if getattr(agent, "cron", None) is not None:
+            print("[boot] cron jobs loaded:", len(agent.cron.list_jobs()))
+    except Exception:
+        pass
 
     # Start Telegram polling in a background thread so its HTTP blocking
     # never delays the main loop (serial REPL + timer callbacks).

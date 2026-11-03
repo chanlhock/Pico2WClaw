@@ -436,6 +436,44 @@ TOOL_REGISTRY = {
         },
         "callable": None,
     },
+    "cron_add": {
+        "name": "cron_add",
+        "description": "Schedule a recurring GPIO/ADC monitor that sends status to Telegram. type: gpio or adc.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "type": {"type": "string", "enum": ["gpio", "adc"], "description": "Monitor type"},
+                "pin": {"type": "integer", "description": "GPIO/ADC pin number"},
+                "interval_ms": {"type": "integer", "description": "Interval in milliseconds (e.g. 5000)"},
+                "chat_id": {"type": "integer", "description": "Telegram chat id to send to (optional)"},
+                "message": {"type": "string", "description": "Message template; use {value}, {pin}, {type} (optional)"},
+            },
+            "required": ["type", "pin", "interval_ms"],
+        },
+        "callable": None,
+    },
+    "cron_list": {
+        "name": "cron_list",
+        "description": "List scheduled cron jobs.",
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+        "callable": None,
+    },
+    "cron_remove": {
+        "name": "cron_remove",
+        "description": "Remove a cron job by id.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "integer", "description": "Job id"},
+            },
+            "required": ["id"],
+        },
+        "callable": None,
+    },
 }
 
 
@@ -479,6 +517,15 @@ def call_tool(name, arguments):
         if name == "led_toggle":
             from led_blink import toggle
             return str(toggle())
+        if name == "cron_add":
+            from pico_cron import cron_add
+            return str(cron_add(**arguments))
+        if name == "cron_list":
+            from pico_cron import cron_list
+            return str(cron_list())
+        if name == "cron_remove":
+            from pico_cron import cron_remove
+            return str(cron_remove(**arguments))
         return "Error: tool not implemented"
     try:
         result = fn(**arguments)

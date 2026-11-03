@@ -96,6 +96,23 @@ At startup, `agent.py` calls `skills_loader.load_skills()`, which scans `skills/
 Available serial/Telegram commands:
 - `/skills` — list all loaded skill names
 - `/skill_read <name>` — read a skill's `SKILL_INSTR` text
+- `/cron` — manage cron jobs (`list`/`add`/`del`/`on`/`off`)
+- `/cron add <gpio|adc> <pin> <interval_ms> [chat_id] [message...]`
+
+### Cron examples
+```text
+/cron                          # list jobs
+/cron list                     # list jobs
+/cron add gpio 25 5000         # read GPIO25 every 5s, send to default chat
+/cron add adc 26 10000         # read ADC26 every 10s
+/cron add adc 26 10000 8684515324 "ADC26 reading"   # custom chat + message
+/cron on 1                     # enable job id 1
+/cron off 1                    # disable job id 1
+/cron del 1                    # delete job id 1
+```
+Message templates support `{value}`, `{pin}`, `{type}` placeholders, e.g. `GPIO{pin}={value}`.
+
+Jobs are persisted in `/cron/jobs.txt` (survives `/clear` and reboots). Only one job runs per tick; execution uses the main loop (no LLM call).
 
 **Skill file contract:**
 ```python
