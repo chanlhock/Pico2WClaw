@@ -148,24 +148,24 @@ I have tested my code on:
 
 Pico2WClaw wrote a poem about itself...
 
->I'm Pico2WClaw — a tiny mind\
+>*I'm Pico2WClaw — a tiny mind*\
 >on silicon, a watt behind,\
 >with twenty-nine small pins to lend\
->and one onboard LED to bend.\
+>and one onboard LED to bend.
 >
->I blink in SOS and flame,
->I read the ADC's quiet claim,
->I scan the I²C bus to see
+>I blink in SOS and flame,\
+>I read the ADC's quiet claim,\
+>I scan the I²C bus to see\
 >what little chips are friends with me.
 >
->My buzzer hums on twenty-two,
->my OLED writes a line or two,
->my cron jobs wait in patient rows
+>My buzzer hums on twenty-two,\
+>my OLED writes a line or two,\
+>my cron jobs wait in patient rows\
 >to tell you what the sensor knows.
 >
->No cloud to lean on, none to blame —
->just MicroPython, RAM, and name.
->A heartbeat blink, a beep, a byte:
+>No cloud to lean on, none to blame —\
+>just MicroPython, RAM, and name.\
+>A heartbeat blink, a beep, a byte:\
 >small claws, small code, and candlelight.*
 >
 
