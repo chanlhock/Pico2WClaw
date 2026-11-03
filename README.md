@@ -48,11 +48,13 @@ On the Raspberry Pi Pico 2 W:
 
 Note: You can rename boot2.py to boot.py so that the program will automatically run when Raspberry Pi Pico 2 W power up.
 ~~~~
+>>> %Run -c $EDITOR_CONTENT
+
 MPY: soft reboot
 
-==================================================
+==========================================================================================
   Pico2WClaw booting...
-==================================================
+==========================================================================================
 [wifi] connecting to chanhome 2.4GHz ...
 [wifi] waiting... (1/20)
 [wifi] waiting... (2/20)
@@ -64,40 +66,65 @@ MPY: soft reboot
 [wifi] waiting... (8/20)
 [wifi] waiting... (9/20)
 [wifi] waiting... (10/20)
-[wifi] connected: ('192.168.0.24', '255.255.255.0', '192.168.0.1', '192.168.0.1')
+[wifi] connected: ('192.168.0.19', '255.255.255.0', '192.168.0.1', '192.168.0.1')
 [boot] time synced via NTP
-[boot] Telegram polling started
-==================================================
+[boot] cron jobs loaded: 3
+[boot] Telegram thread started
+==========================================================================================
   Pico2WClaw ready.
   Type a message and press Enter.
-  Commands: /info, /memory, /clear, /tools
-==================================================
-> /tools
-/tools
-  led_blink_start: Start blinking the onboard LED at a given frequency (Hz). IMPORTANT: Use this tool for persistent blinking. Do NOT use exec_code to create timers or threads — they die when exec_code returns. Use Pin('LED') for the onboard LED, not Pin(25).
-  beep_now: Play a beep on the buzzer. freq in Hz, duration in seconds.
-  pwm_set: Set PWM frequency and duty on a GPIO pin.
-  gpio_read: Read digital state of a GPIO pin.
-  device_info: Return Pico 2 W hardware info (CPU, RAM, temp, WiFi RSSI).
-  exec_code: Execute MicroPython code on the device. Returns stdout or error.
-  gpio_write: Set a GPIO pin HIGH or LOW. Use for LEDs, relays, transistors.
-  i2c_scan: Scan I2C bus for connected devices.
-  led_blink_stop: Stop the persistent onboard-LED blink and turn the LED off.
-  display_text: Write up to 4 lines on the OLED display (128x64).
-  start_blink: Start blinking the onboard LED with an explicit period in milliseconds. Use this when the user specifies a duration like 'every 2 seconds'. IMPORTANT: Use this tool for persistent blinking. Do NOT use exec_code to create timers or threads — they die when exec_code returns. Use Pin('LED') for the onboard LED, not Pin(25).
-  adc_read: Read 12-bit ADC value and voltage from a pin.
-  led_toggle: Toggle the onboard LED once.
-> [telegram] message from 8684515324 : /tools
-[telegram] message from 8684515324 : /info
-/info
-/info
+  Commands: /info, /memory, /clear, /tools, /help, /cron, /skills, /skill_read <name>
+==========================================================================================
+> /info
 Board: Raspberry Pi Pico 2 W (RP2350)
 CPU freq: 150 MHz
-RAM: ~512 KB
-Flash: 4 MB
+RAM: 446,656 bytes (free: 245,152, used: 201,504)
+Flash: 2,621,440 bytes (free: 2,416,640, used: 204,800)
 Chip temp: 35.9C
-WiFi RSSI: -59 dBm
-MicroPython: 3.4.0;
+WiFi RSSI: -66 dBm
+MicroPython: 3.4.0
+> 
+> /help
+Commands:
+  /info   - hardware info (CPU, RAM, flash, temp, WiFi, MicroPython)
+  /tools  - list available tools
+  /memory - search memory
+  /clear  - wipe history and memory
+  /skills - list loaded skills
+  /skill_read <name> - read a skill's instructions
+  /cron   - manage cron jobs (list/add/del/on/off)
+  /help   - show this help
+Or type a question/request and press Enter to chat with the agent.
+> 
+> /tools
+  led_toggle: Toggle the onboard LED once.
+  gpio_read: Read digital state of a GPIO pin.
+  cron_remove: Remove a cron job by id.
+  pwm_set: Set PWM frequency and duty on a GPIO pin.
+  led_blink_start: Start blinking the onboard LED at a given frequency (Hz). IMPORTANT: Use this tool for persistent blinking. Do NOT use exec_code to create timers or threads — they die when exec_code returns. Use Pin('LED') for the onboard LED, not Pin(25).
+  i2c_scan: Scan I2C bus for connected devices.
+  exec_code: Execute MicroPython code on the device. Returns stdout or error. IMPORTANT: Do NOT use this for buzzer melodies — the buzzer is wired to GPIO22, not GPIO15. Use buzzer_play_tune instead.
+  gpio_write: Set a GPIO pin HIGH or LOW. Use for LEDs, relays, transistors.
+  led_pattern: Play a named LED pattern (sos, heartbeat, candle) on the onboard LED.
+  device_info: Return Pico 2 W hardware info (CPU, RAM, temp, WiFi RSSI).
+  start_blink: Start blinking the onboard LED with an explicit period in milliseconds. Use this when the user specifies a duration like 'every 2 seconds'. IMPORTANT: Use this tool for persistent blinking. Do NOT use exec_code to create timers or threads — they die when exec_code returns. Use Pin('LED') for the onboard LED, not Pin(25).
+  beep_now: Play a short beep on the buzzer (GPIO22). freq in Hz, duration in seconds.
+  buzzer_play_tune: Play a melody on the buzzer (GPIO22). Prefer this over exec_code for tunes. melody is a list of [note, beats] pairs. note is a note name (C, D, E, F, G, A, B, C6, R) or Hz integer. beats is length multiplier. beat_seconds is duration of one beat in seconds.
+  display_text: Write up to 4 lines on the OLED display (128x64).
+  led_blink_stop: Stop the persistent onboard-LED blink and turn the LED off.
+  cron_add: Schedule a recurring GPIO/ADC monitor that sends status to Telegram. type: gpio or adc.
+  cron_list: List scheduled cron jobs.
+  adc_read: Read 12-bit ADC value and voltage from a pin.
+> 
+> /skills
+- led_patterns: LED pattern skill. Use led_pattern when the user asks for SOS, heartbeat, candle, or any repeated LED pattern. For simple on/off/blink, use led_toggle/start_blink instead. (tools: led_pattern)
+> 
+> /cron list
+  #5 adc pin=26 every 1800000ms chat=8684515324 ON
+  #6 adc pin=26 every 240000ms chat=8684515324 ON
+  #7 gpio pin=21 every 3600000ms chat=8684515324 ON
+> 
+> [telegram] message from 8684515324 : /info
 > 
 ~~~~
 6. Raspberry Pi Pico 2 W is now ready and accepting command from either Telegram or Thonny serial cli. 
@@ -148,7 +175,7 @@ Then started all over again using larger LLM model with reasoning set high. Mana
 - [X] Add Skills file capability like other Agentic Agent, such as PicoClaw, Hermes, OpenClaw, etc
 - [X] Add agent memory saving to Pi Pico 2 W internal flash instead of external SD card
 - [ ] Add a command /model which would display information on the provider and model of LLM used
-- [ ] Add a cron like scheduler function that user can set for device to perform a task at certain time of day or interval every hour. 
+- [X] Add a cron like scheduler function that user can set for device to perform a task at certain time of day or interval every hour. 
 - [ ] Add a serial cli and Telegram command of /exit so that the Pico2WClaw main program can stop. This is good for debugging in case device cannot stop even after soft reset.
 - [ ] Add the ability for Pico2WClaw to recover and reconnect back when WiFi is loss/disconnected.
 - [ ] Add Watchdog in order for whole system to recover in the event Pico2WClaw gets into hung conditions.
