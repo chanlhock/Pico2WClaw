@@ -25,7 +25,7 @@
 - [Feedback and Suggestions](#speech_balloon-feedback-and-suggestions)
 
 ## :scroll: Description
-Development of a small Autonomous AI Agent in Raspberry Pi Pico 2 W. \
+Development of a tiny Autonomous AI Agent in Raspberry Pi Pico 2 W. \
 The Micropython program runs on Raspberry Pi Pico 2 W. \
 I called it Pico2WClaw. 
 
