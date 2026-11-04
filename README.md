@@ -175,9 +175,15 @@ Raspberry Pi Pico 2 W board running Pico2WClaw Agentic Agent.
   <img src="resources/pico2wclaw-board.jpg" width="600" />
 </p>
 
-<video src="resources/twinkle-twinkle-little-star-tune.mp4" width="800" controls><video>
 
-<video src="resources/the-entertainer-tune.mp4" width="800" controls><video>
+
+https://github.com/user-attachments/assets/a634365f-ceb8-45c0-9e77-e7a9122f71bd
+
+
+
+https://github.com/user-attachments/assets/7377a510-8386-4521-94a8-f4b9bf86175f
+
+
 
 ## :hourglass_flowing_sand: Chronology of Development Events
 - 27th Oct 2026: Started this Pico2WClaw development to create an Agentic AI Agent that would run on resources limited Raspberry Pi Pico 2 W.<br>
