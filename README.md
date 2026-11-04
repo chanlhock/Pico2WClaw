@@ -175,6 +175,10 @@ Raspberry Pi Pico 2 W board running Pico2WClaw Agentic Agent.
   <img src="resources/pico2wclaw-board.jpg" width="600" />
 </p>
 
+<video src="resources/twinkle-twinkle-little-star-tune.mp4" width="800" controls><video>
+
+<video src="resources/the-entertainer-tune.mp4" width="800" controls><video>
+
 ## :hourglass_flowing_sand: Chronology of Development Events
 - 27th Oct 2026: Started this Pico2WClaw development to create an Agentic AI Agent that would run on resources limited Raspberry Pi Pico 2 W.<br>
 Gotten this idea when I was helping my son develop his Final Year project. His project was sending gestures prompt to Hermes agent in his laptop.
