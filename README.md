@@ -175,11 +175,11 @@ Raspberry Pi Pico 2 W board running Pico2WClaw Agentic Agent.
   <img src="resources/pico2wclaw-board.jpg" width="600" />
 </p>
 
-
+Video shows Pico2WClaw when prompted "Play The Entertainer tune to buzzer" from serial cli or Telegram...
 
 https://github.com/user-attachments/assets/a634365f-ceb8-45c0-9e77-e7a9122f71bd
 
-
+Video shows Pico2WClaw when prompted "Play Twinkle Twinkle Little Star tune to buzzer" from serial cli or Telegram...
 
 https://github.com/user-attachments/assets/7377a510-8386-4521-94a8-f4b9bf86175f
 
