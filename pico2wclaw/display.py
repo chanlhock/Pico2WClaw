@@ -92,21 +92,34 @@ def _init_display():
 def clear():
     if _oled is None:
         return
-    _oled.fill(0)
-    _oled.show()
+    try:
+        _oled.fill(0)
+        _oled.show()
+    except Exception as e:
+        print("[display] clear failed:", e)
+        _disable_display()
+
+
+def _disable_display():
+    global _oled
+    _oled = None
 
 
 def show_text(line1="", line2="", line3="", line4=""):
     """Draw up to 4 lines (max 16 chars each at default font)."""
     if _oled is None:
         return
-    _oled.fill(0)
-    y = 0
-    for text in (line1, line2, line3, line4):
-        if text:
-            _oled.text(text[:21], 0, y)
-        y += 16
-    _oled.show()
+    try:
+        _oled.fill(0)
+        y = 0
+        for text in (line1, line2, line3, line4):
+            if text:
+                _oled.text(text[:21], 0, y)
+            y += 16
+        _oled.show()
+    except Exception as e:
+        print("[display] show_text failed:", e)
+        _disable_display()
 
 
 def show_status(state, detail=""):
@@ -131,9 +144,14 @@ def boot_splash():
     display_ok = _init_display()
     if display_ok:
         for frame in _SPLASH_FRAMES:
-            clear()
-            _oled.text(frame, 0, 0)
-            _oled.show()
+            try:
+                clear()
+                _oled.text(frame, 0, 0)
+                _oled.show()
+            except Exception as e:
+                print("[display] splash frame failed:", e)
+                _disable_display()
+                break
             utime.sleep_ms(200)
         beep(500, 0.05)
     else:
