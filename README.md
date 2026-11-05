@@ -205,16 +205,17 @@ First few attempts failed and after many iterations I reverted back to the old w
 Then started all over again using larger LLM model with reasoning set high. Managed to get a working version with cron job feature.
 - 3rd Nov 2026: Few hours of testing showed that the cron jobs are functioning as defined.\
 Checked in the new code to Github. Completed the /exit & /model commands for both serial cli annd Telegram command. Tested fully working as defined.
+- 5th Nov 2026: Added the Wifi recovery feature and /wifi serial cli and Telegram bot command.
 
 ## :plate_with_cutlery: Incomplete Todo Tasks
 - [X] Add Skills file capability like other Agentic Agent, such as PicoClaw, Hermes, OpenClaw, etc
 - [X] Add agent memory saving to Pi Pico 2 W internal flash instead of external SD card
 - [X] Add a cron like scheduler function that user can set for device to perform a task at certain time of day or interval every hour. 
 - [X] Add a serial cli and Telegram command of /exit so that the Pico2WClaw main program can stop. This is good for debugging in case device cannot stop even after soft reset.
-- [ ] Add the ability for Pico2WClaw to recover and reconnect back when WiFi is loss/disconnected.
-- [ ] Add Watchdog in order for whole system to recover in the event Pico2WClaw gets into hung conditions. Using Pi Pico 2 W hardware Watchdog Timer (WDT) and also once reset due to WDT overflow, at the start up boot will displayed that system reset due to WDT triggered.
+- [X] Add the ability for Pico2WClaw to recover and reconnect back when WiFi is loss/disconnected.
 - [X] Add a command /model which would display information on the provider and model of LLM used
 - [ ] Implement a model fallback when main LLM model is down. Always use main model and only fallback when main model is down and display fallback status at serial cli.
+- [ ] Add Watchdog in order for whole system to recover in the event Pico2WClaw gets into hung conditions. Using Pi Pico 2 W hardware Watchdog Timer (WDT) and also once reset due to WDT overflow, at the start up boot will displayed that system reset due to WDT triggered.
 
 ## :coffee: Buy Me a Coffee
 If you appreciate my work, do support me by...<br>
