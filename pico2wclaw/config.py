@@ -8,20 +8,20 @@ executes tools (GPIO, sensors), and persists simple memory.
 # config.py — WiFi, LLM provider, and device settings
 # =============================================================================
 
-WIFI_SSID = "YOUR_WIFI_SSID"
-WIFI_PASSWORD = "YOUR_WIFI_PASSWORD"
+WIFI_SSID = "chanhome 2.4GHz"
+WIFI_PASSWORD = "bclh9898A"
 
 # LLM provider (OpenAI-compatible endpoint)
 # DeepSeek API
 LLM_BASE_URL = "https://api.deepseek.com/v1"
-LLM_API_KEY = "YOUR_API_KEY_HERE"
-LLM_MODEL = "deepseek-chat"  # pick a small/fast model
+LLM_API_KEY = "sk-ce72bc9e936e4000ac6496bb63d345b5"
+LLM_MODEL = "deepseek-flash"  # pick a small/fast model
 # For OpenAI: "https://api.openai.com/v1"
 # For Ollama local: "http://192.168.1.100:11434/v1"
 
 # Telegram bot (optional — leave TOKEN="" to disable)
-TELEGRAM_BOT_TOKEN = ""
-TELEGRAM_ALLOWED_USERS = []  # e.g. [123456789]
+TELEGRAM_BOT_TOKEN = "8629921666:AAFad9ChGQ_K3yLRwn3BveaQygzE77O4TPc"
+TELEGRAM_ALLOWED_USERS = [8684515324]  # e.g. [123456789]
 
 # Agent behaviour
 AGENT_NAME = "Pico2WClaw"
@@ -40,5 +40,7 @@ MEMORY_MAX_CHARS = 1500
 CRON_ENABLED = True
 CRON_TICK_MS = 1000
 CRON_DEFAULT_CHAT_ID = None  # falls back to first TELEGRAM_ALLOWED_USERS entry
-
-
+# WiFi recovery (non-blocking reconnect in main loop)
+WIFI_RECONNECT_ENABLED = True
+WIFI_RECONNECT_COOLDOWN_MS = 10000
+WIFI_AUTO_SOFT_RESET_MS = 0  # 0 disables automatic soft reset after prolonged outage

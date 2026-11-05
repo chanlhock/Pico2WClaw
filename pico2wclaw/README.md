@@ -61,6 +61,7 @@ At the `>` prompt, type messages like:
 - `/cron` — manage cron jobs (`list`/`add`/`del`/`on`/`off`)
 - `/exit` — stop the agent (serial + Telegram)
 - `/model` — show LLM provider and model
+- `/wifi` — check/reconnect WiFi
 
 ## Onboard LED Blinking
 
@@ -104,6 +105,7 @@ Available serial/Telegram commands:
 - `/cron add <gpio|adc> <pin> <interval_ms> [chat_id] [message...]`
 - `/exit` — stop the agent (serial + Telegram)
 - `/model` — show LLM provider and model
+- `/wifi` — check/reconnect WiFi
 
 ### Cron examples
 ```text

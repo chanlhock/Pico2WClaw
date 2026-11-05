@@ -55,12 +55,118 @@ class Agent:
         except Exception as e:
             print("[cron] init failed:", e)
 
+        # WiFi recovery state (non-blocking reconnect in main loop)
+        self._wifi_state = "unknown"  # unknown / connected / connecting / cooldown
+        self._wifi_connect_started_ms = 0
+        self._wifi_cooldown_until_ms = 0
+        self._wifi_down_since_ms = 0
+
+    # ------------------------------------------------------------------
+    # WiFi recovery (non-blocking)
+    # ------------------------------------------------------------------
+    def _wlan(self):
+        try:
+            import network
+            return network.WLAN(network.STA_IF)
+        except Exception:
+            return None
+
+    def wifi_connected(self):
+        wlan = self._wlan()
+        try:
+            return bool(wlan is not None and wlan.isconnected())
+        except Exception:
+            return False
+
+    def ensure_wifi(self):
+        """Non-blocking WiFi health check / reconnect. Returns True if connected."""
+        if not getattr(config, "WIFI_RECONNECT_ENABLED", True):
+            return self.wifi_connected()
+        wlan = self._wlan()
+        if wlan is None:
+            return False
+        now = time.ticks_ms()
+        try:
+            if wlan.isconnected():
+                if self._wifi_state != "connected":
+                    print("[wifi] reconnected:", wlan.ifconfig())
+                    self._prompt_printed = False
+                    try:
+                        set_status("wifi_ok", beep_type="success")
+                    except Exception:
+                        pass
+                self._wifi_state = "connected"
+                self._wifi_down_since_ms = 0
+                return True
+        except Exception:
+            pass
+
+        # Track how long WiFi has been down
+        if self._wifi_down_since_ms == 0:
+            self._wifi_down_since_ms = now
+
+        # Cooldown between attempts
+        if self._wifi_state == "cooldown":
+            if time.ticks_diff(now, self._wifi_cooldown_until_ms) < 0:
+                return False
+            self._wifi_state = "idle"
+
+        # If already connecting, poll status without re-calling connect()
+        if self._wifi_state == "connecting":
+            try:
+                # Give up if attempt has taken too long
+                if time.ticks_diff(now, self._wifi_connect_started_ms) > 8000:
+                    print("[wifi] connect attempt timed out")
+                    self._prompt_printed = False
+                    self._wifi_state = "cooldown"
+                    self._wifi_cooldown_until_ms = now + getattr(config, "WIFI_RECONNECT_COOLDOWN_MS", 10000)
+                    return False
+            except Exception:
+                pass
+            return False
+
+        # Start a new connection attempt
+        try:
+            try:
+                wlan.active(True)
+            except Exception:
+                pass
+            wlan.connect(config.WIFI_SSID, config.WIFI_PASSWORD)
+            self._wifi_state = "connecting"
+            self._wifi_connect_started_ms = now
+            print("[wifi] reconnecting...")
+            self._prompt_printed = False
+            try:
+                set_status("wifi_fail", beep_type="error")
+            except Exception:
+                pass
+        except Exception as e:
+            print("[wifi] reconnect error:", e)
+            self._wifi_state = "cooldown"
+            self._wifi_cooldown_until_ms = now + getattr(config, "WIFI_RECONNECT_COOLDOWN_MS", 10000)
+        return False
+
+    def wifi_maybe_soft_reset(self):
+        threshold = getattr(config, "WIFI_AUTO_SOFT_RESET_MS", 0) or 0
+        if threshold <= 0 or self._wifi_down_since_ms == 0:
+            return
+        now = time.ticks_ms()
+        if time.ticks_diff(now, self._wifi_down_since_ms) >= threshold:
+            print("[wifi] down too long; soft resetting")
+            try:
+                import machine
+                machine.soft_reset()
+            except Exception:
+                pass
+
     # ------------------------------------------------------------------
     # LLM API client (OpenAI-compatible)
     # ------------------------------------------------------------------
     def _call_llm(self, messages, tools=None, stream=False):
         import urequests
 
+        if not self.ensure_wifi():
+            return {"choices": [{"message": {"content": "Error: WiFi is disconnected; cannot reach LLM."}}]}
         url = config.LLM_BASE_URL.rstrip("/") + "/chat/completions"
         headers = {
             "Content-Type": "application/json",
@@ -279,6 +385,13 @@ class Agent:
         print("> ", end="")
         _last_char_ms = time.ticks_ms()
         while self.running:
+            # WiFi health check / non-blocking reconnect
+            try:
+                self.ensure_wifi()
+                self.wifi_maybe_soft_reset()
+            except Exception:
+                pass
+
             # Cron tick (main thread only; gated to avoid per-iteration cost)
             try:
                 import config as _cfg
@@ -388,6 +501,7 @@ class Agent:
                     "  /cron   - manage cron jobs (list/add/del/on/off)\n"
                     "  /exit   - stop the agent\n"
                     "  /model  - show LLM provider and model\n"
+                    "  /wifi   - check/reconnect WiFi\n"
                     "  /help   - show this help\n"
                     "Or type a question/request and press Enter to chat with the agent."
                 )
@@ -398,6 +512,10 @@ class Agent:
                 return
             if user_input == "/model":
                 print(self._llm_info())
+                return
+            if user_input == "/wifi":
+                ok = self.ensure_wifi()
+                print("[wifi]", "connected" if ok else "disconnected/reconnecting")
                 return
             if user_input == "/skills":
                 names = sorted(self._skill_namespaces.keys())
@@ -534,6 +652,8 @@ class Agent:
         """Poll Telegram for new messages and process them."""
         if not config.TELEGRAM_BOT_TOKEN:
             return
+        if not self.wifi_connected():
+            return False
         import urequests
         url = "https://api.telegram.org/bot%s/getUpdates?offset=%s&timeout=5" % (
             config.TELEGRAM_BOT_TOKEN, self._telegram_offset
@@ -597,6 +717,7 @@ class Agent:
                         "  /cron   - manage cron jobs (list/add/del/on/off)\n"
                         "  /exit   - stop the agent\n"
                         "  /model  - show LLM provider and model\n"
+                        "  /wifi   - check/reconnect WiFi\n"
                         "  /help   - show this help\n"
                         "Or send a question/request and I'll process it."
                     )
@@ -678,6 +799,9 @@ class Agent:
                     reply = "Stopping agent."
                 elif text == "/model":
                     reply = self._llm_info()
+                elif text == "/wifi":
+                    ok = self.ensure_wifi()
+                    reply = "[wifi] " + ("connected" if ok else "disconnected/reconnecting")
                 elif text == "/memory":
                     snippets = self.memory.search(text, max_results=10)
                     reply = "\n".join(f"- {s[:100]}" for s in snippets) if snippets else "(memory empty)"
