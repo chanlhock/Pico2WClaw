@@ -29,7 +29,7 @@ Development of a tiny Autonomous AI Agent in Raspberry Pi Pico 2 W. \
 The Micropython program runs on Raspberry Pi Pico 2 W. \
 I called it Pico2WClaw. 
 
-It takes in prompt from Telegram and then sent to Deepseek LLM through API, the response from Deepseek LLM will call up tools on the device to turn on GPIO, read ADC from sensors connected to Raspberry Pi 2 W and also write code to execute on the microcontroller. 🤭 \
+It takes in prompt from Telegram bot and then sent to Deepseek LLM through API, the response from Deepseek LLM will call up tools on the device to turn on GPIO, read ADC from sensors connected to Raspberry Pi 2 W and also write code to execute on the microcontroller. 🤭 \
 Managed to get the initial version up and running with Hermes Agent help. One thing nice is that I can read all the Python code and understand how the agent is functioning. 😆🤗
 
 More detail information about Pico2WClaw usage can be obtained here: [Pico2WClaw README](/pico2wclaw/README.md) 
@@ -120,11 +120,11 @@ Or type a question/request and press Enter to chat with the agent.
 - led_patterns: LED pattern skill. Use led_pattern when the user asks for SOS, heartbeat, candle, or any repeated LED pattern. For simple on/off/blink, use led_toggle/start_blink instead. (tools: led_pattern)
 > 
 > /cron list
-  #5 adc pin=26 every 1800000ms chat=8684515324 ON
-  #6 adc pin=26 every 240000ms chat=8684515324 ON
-  #7 gpio pin=21 every 3600000ms chat=8684515324 ON
+  #5 adc pin=26 every 1800000ms chat=8684515XXX ON
+  #6 adc pin=26 every 240000ms chat=8684515XXX ON
+  #7 gpio pin=21 every 3600000ms chat=8684515XXX ON
 > 
-> [telegram] message from 8684515324 : /info
+> [telegram] message from 8684515XXX : /info
 > 
 ~~~~
 6. Raspberry Pi Pico 2 W is now ready and accepting command from either Telegram or Thonny serial cli. 
@@ -138,8 +138,8 @@ On Raspberry Pi Pico 2 W, the Micropython code would run an autonomous Agentic A
 	- GP25 (Onboard LED)
 	- GP22 (Buzzer)
 - communicate with MacBook Air 2017 through Thonny serial CLI.
-- Accepts command from Telegram to turn ON or OFF onboard LED and do other stuffs
-- OLED SSD1306 4 lines display setable through Telegram message to LLM
+- Accepts command from Telegram bot to turn ON or OFF onboard LED and do other stuffs
+- OLED SSD1306 4 lines display setable through Telegram bot message to LLM
 More detail information can be obtained from [Pico2WClaw README](/pico2wclaw/README.md)
 
 ## :iphone: Platform tested:
@@ -204,7 +204,7 @@ The DeepSeek LLM can generate Python code to execute on Pico2WClaw playing tune 
 First few attempts failed and after many iterations I reverted back to the old working code.
 Then started all over again using larger LLM model with reasoning set high. Managed to get a working version with cron job feature.
 - 3rd Nov 2026: Few hours of testing showed that the cron jobs are functioning as defined.\
-Checked in the new code to Github. Completed the /exit & /model commands for both serial cli annd Telegram command. Tested fully working as defined.
+Checked in the new code to Github. Completed the /exit & /model commands for both serial cli and Telegram bot command. Tested fully working as defined.
 - 5th Nov 2026: Added the Wifi recovery feature and /wifi serial cli and Telegram bot command.
 
 ## :plate_with_cutlery: Incomplete Todo Tasks
