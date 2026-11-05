@@ -271,13 +271,14 @@ It returns `True` if any message was processed, allowing `boot.py`'s `_tg_worker
 
 ### 4.4 Direct Telegram Commands
 
-To avoid LLM latency and API cost for simple queries, `/info`, `/tools`, `/memory`, `/clear`, and `/cron` are handled directly in `telegram_loop()`:
+To avoid LLM latency and API cost for simple queries, `/info`, `/tools`, `/memory`, `/clear`, `/cron`, and `/wifi` are handled directly in `telegram_loop()`:
 
 - `/info`: calls `tools.device_info()` and sends the result.
 - `/tools`: lists all tool names and descriptions from `get_tool_defs()`.
 - `/memory`: searches memory and returns snippets.
 - `/clear`: clears in-memory history and on-device memory.
 - `/cron`: lists cron jobs via `cron_list()`.
+- `/wifi`: reports connection state and triggers a non-blocking reconnect via `ensure_wifi()`; replies with `connected` or `disconnected/reconnecting`.
 
 ---
 
@@ -701,9 +702,116 @@ The OLED shows:
   - `beep_error()`: 880→660→440 Hz descending (3×100 ms)
   - `beep_click()`: 2000 Hz for 30 ms (UI feedback)
 
+### 9.3 Display Reliability & Timeout Handling
+
+The OLED I2C link can occasionally stall (e.g., loose wiring, power glitch, or a stuck bus). To prevent a single failed `show()` from crashing the whole agent, every display operation is wrapped in `try/except` and, on failure, calls `_disable_display()`:
+
+```python
+def show_text(line1="", line2="", line3="", line4=""):
+    if _oled is None:
+        return
+    try:
+        _oled.fill(0)
+        ...
+        _oled.show()
+    except Exception as e:
+        print("[display] show_text failed:", e)
+        _disable_display()   # set _oled = None; no further I2C attempts
+```
+
+`_disable_display()` sets the module-global `_oled = None`, so subsequent calls become no-ops instead of repeatedly hammering a dead bus. The same pattern is applied in `clear()`. This is the "display timeout bug fix": instead of blocking on a hung I2C transaction or raising an unhandled exception that kills the main loop, the display is gracefully disabled and the agent continues running (serial REPL, Telegram, cron, LED blink all keep working). The display can be re-enabled by rebooting.
+
+Additional notes:
+- `beep()` uses `utime.sleep(duration)`, which blocks the calling thread for the beep duration. Keep beep durations short (≤0.1 s) in the main loop to avoid delaying timer callbacks.
+- `beep_success()`/`beep_error()` chain 3 beeps; these are acceptable because they run during status transitions, not in tight loops.
+
 ---
 
-## 10. Cron Scheduler (`pico_cron.py`)
+## 10. WiFi Recovery (Non-Blocking Reconnect)
+
+Pico2WClaw includes a non-blocking WiFi recovery mechanism so that a dropped or flaky connection does not freeze the serial REPL, timer callbacks, or LED blink. The state machine lives in `Agent.ensure_wifi()` and is invoked from the top of every `serial_loop()` iteration.
+
+### 10.1 State Machine
+
+States: `unknown` → `connected` → (on drop) `idle` → `connecting` → (success) `connected` / (timeout) `cooldown` → `idle` → ...
+
+```python
+def ensure_wifi(self):
+    if not getattr(config, "WIFI_RECONNECT_ENABLED", True):
+        return self.wifi_connected()
+    wlan = self._wlan()
+    if wlan is None:
+        return False
+    now = time.ticks_ms()
+    try:
+        if wlan.isconnected():
+            if self._wifi_state != "connected":
+                print("[wifi] reconnected:", wlan.ifconfig())
+                set_status("wifi_ok", beep_type="success")
+            self._wifi_state = "connected"
+            self._wifi_down_since_ms = 0
+            return True
+    except Exception:
+        pass
+
+    # Track how long WiFi has been down
+    if self._wifi_down_since_ms == 0:
+        self._wifi_down_since_ms = now
+
+    # Cooldown between attempts
+    if self._wifi_state == "cooldown":
+        if time.ticks_diff(now, self._wifi_cooldown_until_ms) < 0:
+            return False
+        self._wifi_state = "idle"
+
+    # If already connecting, poll status without re-calling connect()
+    if self._wifi_state == "connecting":
+        if time.ticks_diff(now, self._wifi_connect_started_ms) > 8000:
+            print("[wifi] connect attempt timed out")
+            self._wifi_state = "cooldown"
+            self._wifi_cooldown_until_ms = now + getattr(config, "WIFI_RECONNECT_COOLDOWN_MS", 10000)
+        return False
+
+    # Start a new connection attempt
+    try:
+        wlan.active(True)
+        wlan.connect(config.WIFI_SSID, config.WIFI_PASSWORD)
+        self._wifi_state = "connecting"
+        self._wifi_connect_started_ms = now
+        print("[wifi] reconnecting...")
+        set_status("wifi_fail", beep_type="error")
+    except Exception as e:
+        print("[wifi] reconnect error:", e)
+        self._wifi_state = "cooldown"
+        self._wifi_cooldown_until_ms = now + getattr(config, "WIFI_RECONNECT_COOLDOWN_MS", 10000)
+    return False
+```
+
+Key properties:
+
+- **Non-blocking:** `wlan.connect()` is called once; subsequent iterations only poll `isconnected()`. No `time.sleep()` loops.
+- **Cooldown:** Failed attempts wait `WIFI_RECONNECT_COOLDOWN_MS` (default 10 s) before retrying, preventing tight retry storms.
+- **Attempt timeout:** A single attempt gives up after 8 s and enters cooldown.
+- **Soft reset (optional):** `wifi_maybe_soft_reset()` triggers `machine.soft_reset()` if WiFi has been down longer than `WIFI_AUTO_SOFT_RESET_MS` (default 0 = disabled). This is a last-resort recovery for stuck CYW43 states.
+- **Status feedback:** On reconnect, the OLED shows "WiFi / connected" with a success beep; on failure, "WiFi / FAILED" with an error beep.
+
+### 10.2 Configuration
+
+```python
+# config.py
+WIFI_RECONNECT_ENABLED = True
+WIFI_RECONNECT_COOLDOWN_MS = 10000   # ms between reconnect attempts
+WIFI_AUTO_SOFT_RESET_MS = 0          # 0 disables; set e.g. 300000 for 5-min auto-reset
+```
+
+### 10.3 Serial / Telegram Command
+
+- Serial REPL: `/wifi` prints `[wifi] connected` or `[wifi] disconnected/reconnecting`.
+- Telegram: `/wifi` replies with the same status string.
+
+---
+
+## 11. Cron Scheduler (`pico_cron.py`)
 
 A lightweight interval scheduler for recurring GPIO/ADC monitoring that sends status to Telegram.
 
@@ -739,7 +847,7 @@ The `chat_id` defaults to `CRON_DEFAULT_CHAT_ID` (or the first `TELEGRAM_ALLOWED
 
 ---
 
-## 11. Skills Loader (`skills_loader.py`)
+## 12. Skills Loader (`skills_loader.py`)
 
 Loads pluggable skills from the `skills/` directory. Each skill is a `.py` file with an optional `SKILL_INSTR` string (injected into the LLM system prompt) and an optional `TOOLS` dict (merged into `TOOL_REGISTRY`).
 
@@ -760,7 +868,7 @@ TOOLS = {
 
 ---
 
-## 12. End-to-End Examples
+## 13. End-to-End Examples
 
 ### Example 1: Telegram `/info` Command
 
@@ -880,11 +988,23 @@ TOOLS = {
 2. `cron_add` calls `_store.add_job(...)`, persists to `/cron/jobs.txt`, returns `"Added cron job #1"`.
 3. Every 5 seconds, the main loop's cron tick fires job #1, reads ADC26, and sends the formatted message to the configured Telegram chat.
 
+### Example 7: WiFi Drop & Recovery
+
+**Scenario:** WiFi AP reboots mid-session.
+
+1. `serial_loop()` calls `agent.ensure_wifi()` at the top of each iteration.
+2. `wlan.isconnected()` returns `False`; state moves `connected` → `idle`, `_wifi_down_since_ms` is recorded.
+3. On the next iteration, state is `idle` → a new attempt starts: `wlan.connect(SSID, PASSWORD)`, state becomes `connecting`, OLED shows "WiFi / FAILED".
+4. For the next 8 s, iterations poll `isconnected()` only (no re-connect).
+5. If the AP comes back, `isconnected()` becomes `True` → state returns to `connected`, OLED shows "WiFi / connected" with success beep.
+6. If it stays down past 8 s, state moves to `cooldown` for `WIFI_RECONNECT_COOLDOWN_MS` (10 s) before another attempt.
+7. If `WIFI_AUTO_SOFT_RESET_MS` is set and WiFi has been down that long, `wifi_maybe_soft_reset()` triggers `machine.soft_reset()`.
+
 ---
 
-## 13. Constraints & Design Decisions
+## 14. Constraints & Design Decisions
 
-### 13.1 Memory Constraints
+### 14.1 Memory Constraints
 
 - **520 KB SRAM:** LLM context is limited to 4000 tokens (`MAX_CONTEXT_TOKENS`). Response is capped at 512 tokens (`MAX_RESPONSE_TOKENS`). Tool-calling rounds are limited to 4 (`TOOL_CALL_MAX_ROUNDS`).
 - **No `collections.Counter`:** Replaced with `_counter()` using plain dicts.
@@ -892,10 +1012,12 @@ TOOLS = {
 - **No `str.isalnum()`:** Character ranges `("a" <= ch <= "z")` and `("0" <= ch <= "9")` are used instead.
 - **Skills and cron** add small but real overhead; keep skill files minimal.
 
-### 13.2 Timing Constraints
+### 14.2 Timing Constraints
 
 - **Serial REPL blocking:** `sys.stdin.settimeout(0)` is unreliable on some MicroPython builds. A 20 ms timeout is used instead.
 - **LED blink accuracy:** `machine.Timer(0)` (hardware timer) is preferred over `machine.Timer(-1)` (virtual timer). A minimum-gap guard suppresses timer drift artifacts.
+- **WiFi recovery:** `ensure_wifi()` is non-blocking; cooldown prevents retry storms. `wifi_maybe_soft_reset()` is opt-in (default disabled).
+- **Display reliability:** I2C failures disable the OLED permanently for the session (`_disable_display()`); the agent keeps running without display.
 - **Telegram thread isolation:** Telegram polling runs in `_thread` so its HTTP blocking never delays the serial REPL or timer callbacks.
 - **Cron runs only from the main loop** to avoid unsafe concurrent access.
 
@@ -913,7 +1035,7 @@ TOOLS = {
 
 ---
 
-## 14. Troubleshooting
+## 15. Troubleshooting
 
 ### 14.1 LED Blink Stretched or Glitchy
 
@@ -953,7 +1075,7 @@ TOOLS = {
 
 ---
 
-## 15. File Structure
+## 16. File Structure
 
 ```
 pico2wclaw/
@@ -975,7 +1097,7 @@ Upload all `.py` files to the Pico 2 W using Thonny IDE or `mpremote`. Ensure `s
 
 ---
 
-## 16. Summary
+## 17. Summary
 
 Pico2WClaw is a complete embedded agentic AI system that fits within the Raspberry Pi Pico 2 W's resource constraints. It achieves this through:
 
