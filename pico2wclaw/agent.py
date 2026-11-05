@@ -162,6 +162,21 @@ class Agent:
     # ------------------------------------------------------------------
     # LLM API client (OpenAI-compatible)
     # ------------------------------------------------------------------
+    def _sanitize_text(self, value):
+        """Remove/replace Unicode code points that break JSON/UTF-8 payloads."""
+        if not isinstance(value, str):
+            return value
+        out = []
+        for ch in value:
+            cp = ord(ch)
+            if 0xD800 <= cp <= 0xDFFF:          # lone surrogates
+                out.append("\ufffd")
+            elif cp > 0x10FFFF:                  # invalid code points
+                out.append("\ufffd")
+            else:
+                out.append(ch)
+        return "".join(out)
+
     def _call_llm(self, messages, tools=None, stream=False):
         import urequests
 
@@ -172,9 +187,17 @@ class Agent:
             "Content-Type": "application/json",
             "Authorization": "Bearer " + config.LLM_API_KEY,
         }
+        # Sanitize message text so invalid Unicode cannot break the JSON request
+        clean_messages = []
+        for m in (messages or []):
+            nm = dict(m) if isinstance(m, dict) else m
+            if isinstance(nm, dict) and isinstance(nm.get("content"), str):
+                nm["content"] = self._sanitize_text(nm["content"])
+            clean_messages.append(nm)
+
         payload = {
             "model": config.LLM_MODEL,
-            "messages": messages,
+            "messages": clean_messages,
             "max_tokens": config.MAX_RESPONSE_TOKENS,
             "temperature": 0.7,
         }
