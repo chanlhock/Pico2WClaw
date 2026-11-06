@@ -88,7 +88,7 @@ class Agent:
         now = time.ticks_ms()
         try:
             if wlan.isconnected():
-                if self._wifi_state != "connected":
+                if self._wifi_state not in ("connected", "unknown"):
                     print("[wifi] reconnected:", wlan.ifconfig())
                     self._prompt_printed = False
                     try:

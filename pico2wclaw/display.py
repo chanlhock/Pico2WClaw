@@ -107,19 +107,28 @@ def _disable_display():
 
 def show_text(line1="", line2="", line3="", line4=""):
     """Draw up to 4 lines (max 16 chars each at default font)."""
+    global _oled
     if _oled is None:
-        return
-    try:
-        _oled.fill(0)
-        y = 0
-        for text in (line1, line2, line3, line4):
-            if text:
-                _oled.text(text[:21], 0, y)
-            y += 16
-        _oled.show()
-    except Exception as e:
-        print("[display] show_text failed:", e)
-        _disable_display()
+        if not _init_display():
+            return
+    for attempt in range(3):
+        try:
+            _oled.fill(0)
+            y = 0
+            for text in (line1, line2, line3, line4):
+                if text:
+                    _oled.text(text[:21], 0, y)
+                y += 16
+            _oled.show()
+            return
+        except Exception as e:
+            print("[display] show_text failed:", e)
+            if attempt < 2:
+                utime.sleep_ms(100)
+                # Try to recover the OLED instead of giving up immediately
+                _init_display()
+            else:
+                _disable_display()
 
 
 def show_status(state, detail=""):
