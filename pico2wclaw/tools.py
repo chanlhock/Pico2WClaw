@@ -154,6 +154,19 @@ def display_text(line1="", line2="", line3="", line4=""):
     return "Display updated"
 
 
+def display_bottom(line1="", line2="", line3="", line4=""):
+    """Write up to 4 lines on the lower half of the OLED display."""
+    from display import show_bottom
+    show_bottom(str(line1), str(line2), str(line3), str(line4))
+    return "Display updated"
+
+
+def clear_display_bottom():
+    """Clear the lower half of the OLED display."""
+    from display import clear_bottom
+    clear_bottom()
+    return "Display cleared"
+
 def beep_now(freq=1000, duration=0.1):
     """Play a beep on the buzzer (GPIO22)."""
     from display import beep
@@ -161,7 +174,7 @@ def beep_now(freq=1000, duration=0.1):
     return f"Beep: {freq}Hz for {duration}s"
 
 
-def buzzer_play_tune(melody, beat_seconds=0.4, duty=32768):
+def buzzer_play_tune(melody, beat_seconds=0.4, duty=32768, title=""):
     """Play a melody on the buzzer (GPIO22).
 
     melody: list of [note, beats] pairs. note is a note name
@@ -173,6 +186,13 @@ def buzzer_play_tune(melody, beat_seconds=0.4, duty=32768):
         beat_seconds = float(beat_seconds)
     except Exception:
         beat_seconds = 0.4
+
+    if title:
+        try:
+            from display import show_bottom
+            show_bottom("Playing tune", str(title)[:21], "", "")
+        except Exception:
+            pass
 
     _NOTE_OFFSET = {
         "C": 0, "C#": 1, "D": 2, "D#": 3, "E": 4,
@@ -217,6 +237,12 @@ def buzzer_play_tune(melody, beat_seconds=0.4, duty=32768):
             else:
                 utime.sleep(duration * 0.9)
             utime.sleep(duration * 0.1)
+
+        try:
+            from display import clear_bottom
+            clear_bottom()
+        except Exception:
+            pass
 
     try:
         import _thread
@@ -345,6 +371,28 @@ TOOL_REGISTRY = {
         },
         "callable": display_text,
     },
+    "display_bottom": {
+        "name": "display_bottom",
+        "description": "Write up to 4 lines on the lower half of the OLED display (transient info).",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "line1": {"type": "string"},
+                "line2": {"type": "string"},
+                "line3": {"type": "string"},
+                "line4": {"type": "string"},
+            },
+            "required": [],
+        },
+        "callable": display_bottom,
+    },
+    "clear_display_bottom": {
+        "name": "clear_display_bottom",
+        "description": "Clear the lower half of the OLED display.",
+        "parameters": {"type": "object", "properties": {}},
+        "callable": clear_display_bottom,
+    },
+
     "beep_now": {
         "name": "beep_now",
         "description": "Play a short beep on the buzzer (GPIO22). freq in Hz, duration in seconds.",
@@ -374,6 +422,7 @@ TOOL_REGISTRY = {
                     },
                 },
                 "beat_seconds": {"type": "number"},
+                "title": {"type": "string"},
                 "duty": {"type": "integer"},
             },
             "required": ["melody"],

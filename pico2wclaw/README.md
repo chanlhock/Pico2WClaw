@@ -149,7 +149,9 @@ The agent auto-initialises the SSD1306 display and buzzer on boot:
 - **Status updates**: Ready, Thinking, Tool, Error, WiFi/LLM status
 - **Beeps**: Success tone (ascending), error tone (descending), click tick
 
-The LLM can also control the display and buzzer via `display_text` and `beep_now` tools.
+The LLM can also control the display and buzzer via `display_text`, `display_bottom`, `clear_display_bottom`, and `beep_now` tools.
+- **Layout**: 8 lines at 8px spacing. Top 4 lines are persistent status/title; bottom 4 lines are transient detail.
+- **Tunes**: `buzzer_play_tune` accepts an optional `title` and shows it on the bottom lines during playback, then clears them.
 
 ## LLM Provider
 

@@ -89,6 +89,42 @@ def _init_display():
         return False
 
 
+# ------------------------------------------------------------------
+# Display state (8 lines total: 4 top + 4 bottom)
+# ------------------------------------------------------------------
+_top_lines = ["", "", "", ""]
+_bottom_lines = ["", "", "", ""]
+
+
+def _render():
+    """Render both regions. Retries/reinits OLED instead of crashing."""
+    global _oled
+    if _oled is None:
+        if not _init_display():
+            return
+    for attempt in range(3):
+        try:
+            _oled.fill(0)
+            y = 0
+            for text in (_top_lines + _bottom_lines):
+                if text:
+                    _oled.text(str(text)[:21], 0, y)
+                y += 8
+            _oled.show()
+            return
+        except Exception as e:
+            print("[display] render failed:", e)
+            if attempt < 2:
+                utime.sleep_ms(100)
+                _init_display()
+            else:
+                _disable_display()
+
+
+def _disable_display():
+    global _oled
+    _oled = None
+
 def clear():
     if _oled is None:
         return
@@ -100,41 +136,37 @@ def clear():
         _disable_display()
 
 
-def _disable_display():
-    global _oled
-    _oled = None
-
-
 def show_text(line1="", line2="", line3="", line4=""):
-    """Draw up to 4 lines (max 16 chars each at default font)."""
-    global _oled
-    if _oled is None:
-        if not _init_display():
-            return
-    for attempt in range(3):
-        try:
-            _oled.fill(0)
-            y = 0
-            for text in (line1, line2, line3, line4):
-                if text:
-                    _oled.text(text[:21], 0, y)
-                y += 16
-            _oled.show()
-            return
-        except Exception as e:
-            print("[display] show_text failed:", e)
-            if attempt < 2:
-                utime.sleep_ms(100)
-                # Try to recover the OLED instead of giving up immediately
-                _init_display()
-            else:
-                _disable_display()
+    """Update the persistent top 4 lines and clear the bottom region."""
+    global _top_lines, _bottom_lines
+    _top_lines = [str(line1), str(line2), str(line3), str(line4)]
+    _bottom_lines = ["", "", "", ""]
+    _render()
+
+
+def show_bottom(line1="", line2="", line3="", line4=""):
+    """Update only the transient bottom 4 lines."""
+    global _bottom_lines
+    _bottom_lines = [str(line1), str(line2), str(line3), str(line4)]
+    _render()
+
+
+def clear_bottom():
+    """Clear the transient bottom 4 lines and restore the top region."""
+    global _bottom_lines
+    _bottom_lines = ["", "", "", ""]
+    _render()
 
 
 def show_status(state, detail=""):
-    """Top line = title, bottom = state+detail."""
-    show_text("Pico2WClaw", state[:16], detail[:16])
+    """Top line = title, bottom = state+detail (top region only)."""
+    show_text("Pico2WClaw", state[:16], detail[:16], "")
 
+
+def show_message(title, body):
+    """Show a 2-line message and beep (top region)."""
+    show_text(title[:21], body[:21], "", "")
+    beep_click()
 
 # ---------------------------------------------------------------------------
 # Boot splash
