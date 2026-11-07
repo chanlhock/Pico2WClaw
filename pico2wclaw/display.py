@@ -76,7 +76,7 @@ def _init_display():
     try:
         from ssd1306 import SSD1306_I2C
 
-        i2c = machine.I2C(0, sda=machine.Pin(I2C_SDA), scl=machine.Pin(I2C_SCL), freq=400000)
+        i2c = machine.I2C(0, sda=machine.Pin(I2C_SDA), scl=machine.Pin(I2C_SCL), freq=200000)
         _oled = SSD1306_I2C(OLED_WIDTH, OLED_HEIGHT, i2c)
         _oled.fill(0)
         _oled.text("Pico2WClaw", 0, 0)
