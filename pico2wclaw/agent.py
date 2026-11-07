@@ -386,6 +386,7 @@ class Agent:
         print("  Type a message and press Enter.")
         print("  Commands: /info, /memory, /clear, /tools, /help, /cron, /model, /exit, /wifi,")
         print("            /skills, /skill_read <name>")
+        print("  Press CTRL-C to break program")
         print("=" * 90)
         self.running = True
 
