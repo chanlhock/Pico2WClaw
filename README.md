@@ -68,20 +68,22 @@ MPY: soft reboot
 [wifi] waiting... (10/20)
 [wifi] connected: ('192.168.0.19', '255.255.255.0', '192.168.0.1', '192.168.0.1')
 [boot] time synced via NTP
-[boot] cron jobs loaded: 3
+[boot] cron jobs loaded: 4
 [boot] Telegram thread started
 ==========================================================================================
   Pico2WClaw ready.
   Type a message and press Enter.
-  Commands: /info, /memory, /clear, /tools, /help, /cron, /skills, /skill_read <name>
+  Commands: /info, /memory, /clear, /tools, /help, /cron, /model, /exit, /wifi,
+            /skills, /skill_read <name>
+  Press CTRL-C to break program
 ==========================================================================================
 > /info
 Board: Raspberry Pi Pico 2 W (RP2350)
 CPU freq: 150 MHz
-RAM: 446,656 bytes (free: 245,152, used: 201,504)
-Flash: 2,621,440 bytes (free: 2,416,640, used: 204,800)
-Chip temp: 35.9C
-WiFi RSSI: -66 dBm
+RAM: 446,656 bytes (free: 65,168, used: 381,488)
+Flash: 2,621,440 bytes (free: 2,420,736, used: 200,704)
+Chip temp: 39.2C
+WiFi RSSI: -77 dBm
 MicroPython: 3.4.0
 > 
 > /help
@@ -93,8 +95,17 @@ Commands:
   /skills - list loaded skills
   /skill_read <name> - read a skill's instructions
   /cron   - manage cron jobs (list/add/del/on/off)
+  /exit   - stop the agent
+  /model  - show LLM provider and model
+  /wifi   - check/reconnect WiFi
   /help   - show this help
 Or type a question/request and press Enter to chat with the agent.
+> 
+> /cron
+  #2 adc pin=26 every 600000ms chat=868451XXXX ON
+  #3 gpio pin=21 every 1800000ms chat=868451XXXX ON
+  #7 dht pin=4 every 300000ms chat=868451XXXX ON
+  #8 dht pin=4 every 900000ms chat=868451XXXX ON
 > 
 > /tools
   led_toggle: Toggle the onboard LED once.
@@ -105,26 +116,25 @@ Or type a question/request and press Enter to chat with the agent.
   i2c_scan: Scan I2C bus for connected devices.
   exec_code: Execute MicroPython code on the device. Returns stdout or error. IMPORTANT: Do NOT use this for buzzer melodies — the buzzer is wired to GPIO22, not GPIO15. Use buzzer_play_tune instead.
   gpio_write: Set a GPIO pin HIGH or LOW. Use for LEDs, relays, transistors.
+  led_blink_stop: Stop the persistent onboard-LED blink and turn the LED off.
   led_pattern: Play a named LED pattern (sos, heartbeat, candle) on the onboard LED.
+  display_bottom: Write up to 4 lines on the lower half of the OLED display (transient info).
   device_info: Return Pico 2 W hardware info (CPU, RAM, temp, WiFi RSSI).
   start_blink: Start blinking the onboard LED with an explicit period in milliseconds. Use this when the user specifies a duration like 'every 2 seconds'. IMPORTANT: Use this tool for persistent blinking. Do NOT use exec_code to create timers or threads — they die when exec_code returns. Use Pin('LED') for the onboard LED, not Pin(25).
-  beep_now: Play a short beep on the buzzer (GPIO22). freq in Hz, duration in seconds.
-  buzzer_play_tune: Play a melody on the buzzer (GPIO22). Prefer this over exec_code for tunes. melody is a list of [note, beats] pairs. note is a note name (C, D, E, F, G, A, B, C6, R) or Hz integer. beats is length multiplier. beat_seconds is duration of one beat in seconds.
   display_text: Write up to 4 lines on the OLED display (128x64).
-  led_blink_stop: Stop the persistent onboard-LED blink and turn the LED off.
-  cron_add: Schedule a recurring GPIO/ADC monitor that sends status to Telegram. type: gpio or adc.
   cron_list: List scheduled cron jobs.
+  beep_now: Play a short beep on the buzzer (GPIO22). freq in Hz, duration in seconds.
+  clear_display_bottom: Clear the lower half of the OLED display.
+  cron_add: Schedule a recurring GPIO/ADC/DHT monitor that sends status to Telegram. type: gpio, adc, or dht.
+  buzzer_play_tune: Play a melody on the buzzer (GPIO22). Prefer this over exec_code for tunes. melody is a list of [note, beats] pairs. note is a note name (C, D, E, F, G, A, B, C6, R) or Hz integer. beats is length multiplier. beat_seconds is duration of one beat in seconds.
+  read_dht: Read a DHT11 sensor on a GPIO pin. Returns temperature and humidity.
   adc_read: Read 12-bit ADC value and voltage from a pin.
 > 
 > /skills
 - led_patterns: LED pattern skill. Use led_pattern when the user asks for SOS, heartbeat, candle, or any repeated LED pattern. For simple on/off/blink, use led_toggle/start_blink instead. (tools: led_pattern)
 > 
-> /cron list
-  #5 adc pin=26 every 1800000ms chat=8684515XXX ON
-  #6 adc pin=26 every 240000ms chat=8684515XXX ON
-  #7 gpio pin=21 every 3600000ms chat=8684515XXX ON
-> 
-> [telegram] message from 8684515XXX : /info
+> [telegram] message from 868451XXXX : /info
+> [telegram] message from 868451XXXX : /help
 > 
 ~~~~
 6. Raspberry Pi Pico 2 W is now ready and accepting command from either Telegram or Thonny serial cli. 
