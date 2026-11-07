@@ -167,6 +167,20 @@ def clear_display_bottom():
     clear_bottom()
     return "Display cleared"
 
+
+def read_dht(pin=4):
+    """Read a DHT11 sensor on the given GPIO pin. Returns 'T=..C H=..%'."""
+    try:
+        import dht
+        from machine import Pin
+        sensor = dht.DHT11(Pin(int(pin)))
+        sensor.measure()
+        t = sensor.temperature()
+        h = sensor.humidity()
+        return "T=%dC H=%d%%" % (t, h)
+    except Exception as e:
+        return "DHT error: %s" % e
+
 def beep_now(freq=1000, duration=0.1):
     """Play a beep on the buzzer (GPIO22)."""
     from display import beep
@@ -393,7 +407,18 @@ TOOL_REGISTRY = {
         "callable": clear_display_bottom,
     },
 
-    "beep_now": {
+    "read_dht": {
+        "name": "read_dht",
+        "description": "Read a DHT11 sensor on a GPIO pin. Returns temperature and humidity.",
+        "parameters": {
+            "type": "object",
+            "properties": {"pin": {"type": "integer", "description": "GPIO pin number (default 4)"}},
+            "required": [],
+        },
+        "callable": read_dht,
+    },
+
+        "beep_now": {
         "name": "beep_now",
         "description": "Play a short beep on the buzzer (GPIO22). freq in Hz, duration in seconds.",
         "parameters": {
@@ -487,11 +512,11 @@ TOOL_REGISTRY = {
     },
     "cron_add": {
         "name": "cron_add",
-        "description": "Schedule a recurring GPIO/ADC monitor that sends status to Telegram. type: gpio or adc.",
+        "description": "Schedule a recurring GPIO/ADC/DHT monitor that sends status to Telegram. type: gpio, adc, or dht.",
         "parameters": {
             "type": "object",
             "properties": {
-                "type": {"type": "string", "enum": ["gpio", "adc"], "description": "Monitor type"},
+                "type": {"type": "string", "enum": ["gpio", "adc", "dht"], "description": "Monitor type"},
                 "pin": {"type": "integer", "description": "GPIO/ADC pin number"},
                 "interval_ms": {"type": "integer", "description": "Interval in milliseconds (e.g. 5000)"},
                 "chat_id": {"type": "integer", "description": "Telegram chat id to send to (optional)"},

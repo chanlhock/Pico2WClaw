@@ -184,6 +184,9 @@ class CronStore:
         if jtype == "adc":
             from tools import adc_read
             return adc_read(job["pin"])
+        if jtype == "dht":
+            from tools import read_dht
+            return read_dht(job["pin"])
         return "unknown type: %s" % jtype
 
     def run_job(self, job):
@@ -193,6 +196,23 @@ class CronStore:
             msg = template.replace("{value}", str(value))
             msg = msg.replace("{pin}", str(job["pin"]))
             msg = msg.replace("{type}", str(job["type"]))
+            if job["type"] == "dht":
+                val = str(value)
+                temp = ""
+                hum = ""
+                try:
+                    if "T=" in val:
+                        temp = val.split("T=", 1)[1].split("C", 1)[0].strip()
+                    if "H=" in val:
+                        hum = val.split("H=", 1)[1].replace("%", "").strip()
+                except Exception:
+                    pass
+                msg = msg.replace("{temp}", temp).replace("{hum}", hum)
+                try:
+                    from display import show_bottom
+                    show_bottom("DHT11 GPIO%s" % job["pin"], "T=%sC H=%s%%" % (temp, hum), "", "")
+                except Exception:
+                    pass
             if job["chat_id"] is not None and getattr(self.agent, "telegram_send", None):
                 try:
                     self.agent.telegram_send(job["chat_id"], msg)
