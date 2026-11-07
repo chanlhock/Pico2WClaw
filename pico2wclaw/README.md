@@ -16,9 +16,9 @@ This is a heavily trimmed-down port of the Pico2WClaw/OpenClaw concept:
 |---|---|
 | `boot.py` | Entry point — WiFi, NTP, starts agent + Telegram thread |
 | `agent.py` | Agent loop — LLM call, tool execution, memory, skills |
-| `tools.py` | Tool registry: GPIO, ADC, PWM, I2C, exec, info, LED blink, buzzer |
+| `tools.py` | Tool registry: GPIO, ADC, PWM, I2C, exec, info, LED blink, buzzer, DHT11 |
 | `pico_memory.py` | File-backed keyword memory store (default: `/memory/`) |
-| `pico_cron.py` | Interval cron scheduler — GPIO/ADC monitoring + Telegram status (persisted in `/cron/jobs.txt`) |
+| `pico_cron.py` | Interval cron scheduler — GPIO/ADC/DHT monitoring + Telegram status (persisted in `/cron/jobs.txt`) |
 | `skills_loader.py` | Loads `skills/*.py` skill files at agent startup |
 | `led_blink.py` | Persistent onboard-LED blink helper (`led_blink_start` by Hz, `start_blink` by ms period, `led_blink_stop`, `led_toggle`) |
 | `config.py` | WiFi SSID/password, LLM API key/model, Telegram bot token |
@@ -50,6 +50,7 @@ At the `>` prompt, type messages like:
 - `Scan the I2C bus`
 - `Display "Hello" on line 1`
 - `Beep at 1000Hz for 0.2s`
+- `Read DHT11 on GPIO4`
 - `Run this code: print(1+1)`
 - `/info` — show hardware info (CPU, RAM, flash, temp, WiFi, MicroPython)
 - `/tools` — list available tools
@@ -107,11 +108,27 @@ Available serial/Telegram commands:
 - `/model` — show LLM provider and model
 - `/wifi` — check/reconnect WiFi
 
+### DHT11 temperature/humidity sensor
+
+- Hardware: DHT11 connected to a GPIO pin (default example uses GPIO4).
+- Tool: `read_dht(pin=4)` returns `T=..C H=..%` or an error string such as `checksum_error`, `timeout_high`, or `no_response_low`.
+- Cron: `dht` is a supported cron type and can update the OLED bottom lines and send Telegram.
+
+Examples:
+```text
+Read DHT11 on GPIO4
+Create a cron job to read from DHT11 GPIO4 every 5 minutes and send to Telegram the message "From DHT11 sensor every 5mins:"+dht value
+/cron add dht 4 300000 8684515324 "From DHT11 sensor every 5mins: temp {temp}C, humidity {hum}%"
+```
+
+DHT cron templates support `{value}`, `{pin}`, `{type}`, `{temp}`, and `{hum}` placeholders. `{temp}` and `{hum}` are filled from the latest DHT reading.
+
 ### Cron examples
 ```text
 /cron                          # list jobs
 /cron list                     # list jobs
 /cron add gpio 25 5000         # read GPIO25 every 5s, send to default chat
+/cron add dht 4 300000        # read DHT11 on GPIO4 every 5min
 /cron add adc 26 10000         # read ADC26 every 10s
 /cron add adc 26 10000 8684515324 "ADC26 reading"   # custom chat + message
 /cron on 1                     # enable job id 1
