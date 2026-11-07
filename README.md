@@ -221,6 +221,8 @@ Then started all over again using larger LLM model with reasoning set high. Mana
 - 3rd Nov 2026: Few hours of testing showed that the cron jobs are functioning as defined.\
 Checked in the new code to Github. Completed the /exit & /model commands for both serial cli and Telegram bot command. Tested fully working as defined.
 - 5th Nov 2026: Added the Wifi recovery feature and /wifi serial cli and Telegram bot command.
+- 7th Nov 2026: Added cron job to support reading temperature and humidity values from DHT11 sensor and send message to Telegram at a defined timing.\
+Replaced the default boot up splash screen display with moving Raspberry Pi logo splash screen.
 
 ## :plate_with_cutlery: Incomplete Todo Tasks
 - [X] Add Skills file capability like other Agentic Agent, such as PicoClaw, Hermes, OpenClaw, etc
