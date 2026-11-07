@@ -666,7 +666,7 @@ class Agent:
         url = "https://api.telegram.org/bot%s/sendMessage" % config.TELEGRAM_BOT_TOKEN
         payload = {"chat_id": chat_id, "text": text}
         try:
-            resp = urequests.post(url, json=payload, timeout=15)
+            resp = urequests.post(url, json=payload, timeout=30)  # increase from 15 to 30
             resp.close()
             return True
         except Exception as e:

@@ -5,6 +5,7 @@ Integrates SSD1306 display and buzzer for status feedback.
 
 import machine
 import utime
+import framebuf
 
 # ---------------------------------------------------------------------------
 # Hardware config (matches your existing ble.py wiring)
@@ -80,7 +81,7 @@ def _init_display():
         _oled = SSD1306_I2C(OLED_WIDTH, OLED_HEIGHT, i2c)
         _oled.fill(0)
         _oled.text("Pico2WClaw", 0, 0)
-        _oled.text("  Init...", 0, 16)
+#         _oled.text("  Init...", 0, 16)
         _oled.show()
         return True
     except Exception as e:
@@ -114,6 +115,7 @@ def _render():
             return
         except Exception as e:
             print("[display] render failed:", e)
+            print("Recovering through attempt #:", attempt+1)
             print("\n>")  # display back the prompt at serial cli
             if attempt < 2:
                 utime.sleep_ms(100)
@@ -184,22 +186,44 @@ _SPLASH_FRAMES = [
 def boot_splash():
     _init_buzzer()
     display_ok = _init_display()
+#     if display_ok:
+#         for frame in _SPLASH_FRAMES:
+#             try:
+#                 clear()
+#                 _oled.text(frame, 0, 0)
+#                 _oled.show()
+#             except Exception as e:
+#                 print("[display] splash frame failed:", e)
+#                 _disable_display()
+#                 break
+#             utime.sleep_ms(200)
+#         beep(500, 0.05)
+#     else:
+#         beep_error()
+        
     if display_ok:
-        for frame in _SPLASH_FRAMES:
-            try:
-                clear()
-                _oled.text(frame, 0, 0)
-                _oled.show()
-            except Exception as e:
-                print("[display] splash frame failed:", e)
-                _disable_display()
-                break
-            utime.sleep_ms(200)
+        # Display the Raspberry Pi logo on start-up
+        LOGO = bytearray(b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00|?\x00\x01\x86@\x80\x01\x01\x80\x80\x01\x11\x88\x80\x01\x05\xa0\x80\x00\x83\xc1\x00\x00C\xe3\x00\x00~\xfc\x00\x00L'\x00\x00\x9c\x11\x00\x00\xbf\xfd\x00\x00\xe1\x87\x00\x01\xc1\x83\x80\x02A\x82@\x02A\x82@\x02\xc1\xc2@\x02\xf6>\xc0\x01\xfc=\x80\x01\x18\x18\x80\x01\x88\x10\x80\x00\x8c!\x00\x00\x87\xf1\x00\x00\x7f\xf6\x00\x008\x1c\x00\x00\x0c \x00\x00\x03\xc0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
+        fb = framebuf.FrameBuffer(LOGO,32,32, framebuf.MONO_HLSB)
+        #_oled.fill(0)
+        _oled.text("Booting", 8, 56)
+        for i in range(-64,128,5):
+             _oled.blit(fb,i,16)
+             if i < -32:  _oled.text(".", 64, 56)
+             if i >= -32 and i < 0:  _oled.text(".", 72, 56)
+             if i >= 0 and i <32: _oled.text(".", 80, 56)
+             if i >= 32 and i <64: _oled.text(".", 88, 56)
+             if i >= 64: _oled.text(".", 96, 56)
+             _oled.show()
+        fb = framebuf.FrameBuffer(LOGO,32,32, framebuf.MONO_HLSB)
+        _oled.fill(0)
+
+        # Blit the image from the framebuffer to the oled display
+        _oled.blit(fb, 96, 8)
         beep(500, 0.05)
     else:
         beep_error()
-
-
+        
 # ---------------------------------------------------------------------------
 # Agent UI helpers
 # ---------------------------------------------------------------------------
