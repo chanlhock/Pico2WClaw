@@ -221,6 +221,14 @@ Then started all over again using larger LLM model with reasoning set high. Mana
 - 3rd Nov 2026: Few hours of testing showed that the cron jobs are functioning as defined.\
 Checked in the new code to Github. Completed the /exit & /model commands for both serial cli and Telegram bot command. Tested fully working as defined.
 - 5th Nov 2026: Added the Wifi recovery feature and /wifi serial cli and Telegram bot command.
+- 7th Nov 2026: Added cron job to support reading temperature and humidity values from DHT11 sensor and send message to Telegram at a defined timing.\
+Replaced the default boot up splash screen display with moving Raspberry Pi logo splash screen.
+- 8th Nov 2026: Manual proactive insertion of garbage collection to free up unused heap space.\
+This would fix oled display and Telegram sent ENOMEM error. Hermes doesn't do that when it generates the code.
+~~~~python
+	import gc
+	gc.collect()
+~~~~
 
 ## :plate_with_cutlery: Incomplete Todo Tasks
 - [X] Add Skills file capability like other Agentic Agent, such as PicoClaw, Hermes, OpenClaw, etc
@@ -231,6 +239,8 @@ Checked in the new code to Github. Completed the /exit & /model commands for bot
 - [X] Add a command /model which would display information on the provider and model of LLM used
 - [ ] Implement a model fallback when main LLM model is down. Always use main model and only fallback when main model is down and display fallback status at serial cli.
 - [ ] Add Watchdog in order for whole system to recover in the event Pico2WClaw gets into hung conditions. Using Pi Pico 2 W hardware Watchdog Timer (WDT) and also once reset due to WDT overflow, at the start up boot will displayed that system reset due to WDT triggered.
+- [ ] ~~Explore adding MQTT client features to Pico2WClaw so that cron job can be set up to read from sensors, such as DHT11 temperature and humidity and publish through MQTT for subscribers to use.~~
+> ***After further check and weighing between merit and demerit of MQTT implementation with Hermes's input, decided not to go ahead because there is not much merit of doing this since Pico2WClaw itself already have an AI Agent running LLM through cloud API. In addition it can take in natural language prompt through Telegram and send data to Telegram.***
 
 ## :coffee: Buy Me a Coffee
 If you appreciate my work, do support me by...<br>
