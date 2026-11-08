@@ -12,7 +12,7 @@ import config
 from pico_memory import Memory
 from tools import get_tool_defs, call_tool
 from display import set_status, show_message, beep_success, beep_error
-
+import gc
 
 class Agent:
     def __init__(self):
@@ -663,14 +663,17 @@ class Agent:
     def telegram_send(self, chat_id, text):
         """Send a text message to a Telegram chat."""
         import urequests
+        gc.collect()  # added garbage collection chanlhock
         url = "https://api.telegram.org/bot%s/sendMessage" % config.TELEGRAM_BOT_TOKEN
         payload = {"chat_id": chat_id, "text": text}
         try:
-            resp = urequests.post(url, json=payload, timeout=30)  # increase from 15 to 30
+            resp = urequests.post(url, json=payload, timeout=30)  # increase from 15 to 30 chanlhock
             resp.close()
+            gc.collect()  # added garbage collection chanlhock
             return True
         except Exception as e:
             print("[telegram] send error:", e)
+            gc.collect()  # added garbage collection chanlhock
             return False
 
     def telegram_loop(self):
