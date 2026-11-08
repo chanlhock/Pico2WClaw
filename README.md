@@ -226,8 +226,8 @@ Replaced the default boot up splash screen display with moving Raspberry Pi logo
 - 8th Nov 2026: Manual proactive insertion of garbage collection to free up unused heap space.\
 This would fix oled display and Telegram sent ENOMEM error. Hermes doesn't do that when it generates the code.
 ~~~~python
-import gc
-gc.collect()
+		import gc
+		gc.collect()
 ~~~~
 
 ## :plate_with_cutlery: Incomplete Todo Tasks
