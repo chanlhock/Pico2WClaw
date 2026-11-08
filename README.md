@@ -223,7 +223,11 @@ Checked in the new code to Github. Completed the /exit & /model commands for bot
 - 5th Nov 2026: Added the Wifi recovery feature and /wifi serial cli and Telegram bot command.
 - 7th Nov 2026: Added cron job to support reading temperature and humidity values from DHT11 sensor and send message to Telegram at a defined timing.\
 Replaced the default boot up splash screen display with moving Raspberry Pi logo splash screen.
-- 8th Nov 2026: Manual proactive insertion of garbage collection to free up unused heap space - gc.collect().\
+- 8th Nov 2026: Manual proactive insertion of garbage collection to free up unused heap space:
+'''
+import gc
+gc.collect()
+'''
 This would fix oled display and Telegram sent ENOMEM error. Hermes doesn't do that when it generates the code.
 
 ## :plate_with_cutlery: Incomplete Todo Tasks
