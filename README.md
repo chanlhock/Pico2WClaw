@@ -229,6 +229,7 @@ This would fix oled display and Telegram sent ENOMEM error. Hermes doesn't do th
 	import gc
 	gc.collect()
 ~~~~
+https://stackoverflow.com/questions/74883568/oserror-errno-12-enomem
 
 ## :plate_with_cutlery: Incomplete Todo Tasks
 - [X] Add Skills file capability like other Agentic Agent, such as PicoClaw, Hermes, OpenClaw, etc
@@ -241,7 +242,6 @@ This would fix oled display and Telegram sent ENOMEM error. Hermes doesn't do th
 - [ ] Add Watchdog in order for whole system to recover in the event Pico2WClaw gets into hung conditions. Using Pi Pico 2 W hardware Watchdog Timer (WDT) and also once reset due to WDT overflow, at the start up boot will displayed that system reset due to WDT triggered.
 - [ ] ~~Explore adding MQTT client features to Pico2WClaw so that cron job can be set up to read from sensors, such as DHT11 temperature and humidity and publish through MQTT for subscribers to use.~~
 > ***After further check and weighing between merit and demerit of MQTT implementation with Hermes's input, decided not to go ahead because there is not much merit of doing this since Pico2WClaw itself already have an AI Agent running LLM through cloud API. In addition it can take in natural language prompt through Telegram and send data to Telegram.***
-https://stackoverflow.com/questions/74883568/oserror-errno-12-enomem
 
 ## :coffee: Buy Me a Coffee
 If you appreciate my work, do support me by...<br>
