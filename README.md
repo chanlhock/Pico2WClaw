@@ -239,7 +239,8 @@ This would fix oled display and Telegram sent ENOMEM error. Hermes doesn't do th
 - [X] Add a command /model which would display information on the provider and model of LLM used
 - [ ] Implement a model fallback when main LLM model is down. Always use main model and only fallback when main model is down and display fallback status at serial cli.
 - [ ] Add Watchdog in order for whole system to recover in the event Pico2WClaw gets into hung conditions. Using Pi Pico 2 W hardware Watchdog Timer (WDT) and also once reset due to WDT overflow, at the start up boot will displayed that system reset due to WDT triggered.
-- [ ] Explore adding MQTT client features to Pico2WClaw so that cron job can be set up to read from sensors, such as DHT11 temperature and humidity and publish through MQTT for subscribers to use.
+- [ ] ~~Explore adding MQTT client features to Pico2WClaw so that cron job can be set up to read from sensors, such as DHT11 temperature and humidity and publish through MQTT for subscribers to use.~~\
+After feature check and weighing between merit and demerit of implementation with Hermes, decided not to go ahead because there is not much merit of doing this since Pico2WClaw itself already have an AI Agent running LLM through cloud API.
 
 ## :coffee: Buy Me a Coffee
 If you appreciate my work, do support me by...<br>
