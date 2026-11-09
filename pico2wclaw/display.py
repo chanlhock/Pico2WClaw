@@ -117,7 +117,7 @@ def _render():
         except Exception as e:
             print("[display] render failed:", e)
             print("Recovering through attempt #:", attempt+1)
-            print("\n>")  # display back the prompt at serial cli
+            print("> ", end="")  # display back the prompt at serial cli
             if attempt < 2:
                 utime.sleep_ms(100)
                 _init_display()
