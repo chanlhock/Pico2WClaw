@@ -157,6 +157,10 @@ Pico2WClaw Agentic Agent Block Diagram:
   <img src="resources/pico2wclaw-block-diagram.jpg" width="600" />
 </p>
 
+CRITICAL: One thing to take note is that if during your software development you hit into ENOMEM 12 error for Telegram, you need to set Raspberry Pi Pico 2 W into boot mode and flash it with nuke_universal.uf2.\
+The nuke_universal.uf2 file can be found in the folder: /resources/nuke_universal.uf2. After that flash it with the Micropython uf2 file. Then upload back your code and run.
+ENOMEM 12 error should be gone and system working bsck.
+
 ## :iphone: Platform tested:
 I have tested my code on:
 - MacBook Air 2017 with Sequioa MacOS running Thonny with Raspberry Pi Pico 2 W
