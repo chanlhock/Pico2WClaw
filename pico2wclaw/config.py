@@ -12,12 +12,16 @@ WIFI_SSID = "YOUR_WIFI_SSD"
 WIFI_PASSWORD = "YOUR_WIFI_PASSWORD"
 
 # LLM provider (OpenAI-compatible endpoint)
-# DeepSeek API
+# DeepSeek API (primary)
 LLM_BASE_URL = "https://api.deepseek.com/v1"
 LLM_API_KEY = "LLM_API_KEY"
-LLM_MODEL = "deepseek-flash"  # pick a small/fast model
-# For OpenAI: "https://api.openai.com/v1"
-# For Ollama local: "http://192.168.1.100:11434/v1"
+LLM_MODEL = "deepseek-chat"  # pick a small/fast model
+
+# Fallback LLM provider (used only when primary is unavailable)
+LLM_FALLBACK_ENABLED = True
+LLM_FALLBACK_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
+LLM_FALLBACK_API_KEY = "«redacted:AIza…»"
+LLM_FALLBACK_MODEL = "gemini-2.0-flash"
 
 # Telegram bot (optional — leave TOKEN="" to disable)
 TELEGRAM_BOT_TOKEN = ""

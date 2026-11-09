@@ -31,6 +31,7 @@ class Agent:
         self._prompt_printed = True  # shared with telegram_loop for prompt restore
         self._skill_instrs = []
         self._skill_namespaces = {}
+        self._using_fallback = False
         # Shutdown coordination (used by /exit)
         self._telegram_running = True
         self._telegram_alive = False
@@ -177,15 +178,18 @@ class Agent:
                 out.append(ch)
         return "".join(out)
 
-    def _call_llm(self, messages, tools=None, stream=False):
+    def _call_llm(self, messages, tools=None, stream=False, base_url=None, api_key=None, model=None):
         import urequests
 
         if not self.ensure_wifi():
             return {"choices": [{"message": {"content": "Error: WiFi is disconnected; cannot reach LLM."}}]}
-        url = config.LLM_BASE_URL.rstrip("/") + "/chat/completions"
+        base_url = (base_url or getattr(config, "LLM_BASE_URL", "")).rstrip("/")
+        api_key = api_key if api_key is not None else getattr(config, "LLM_API_KEY", "")
+        model = model or getattr(config, "LLM_MODEL", "")
+        url = base_url + "/chat/completions"
         headers = {
             "Content-Type": "application/json",
-            "Authorization": "Bearer " + config.LLM_API_KEY,
+            "Authorization": "Bearer " + api_key,
         }
         # Sanitize message text so invalid Unicode cannot break the JSON request
         clean_messages = []
@@ -196,7 +200,7 @@ class Agent:
             clean_messages.append(nm)
 
         payload = {
-            "model": config.LLM_MODEL,
+            "model": model,
             "messages": clean_messages,
             "max_tokens": config.MAX_RESPONSE_TOKENS,
             "temperature": 0.7,
@@ -282,13 +286,45 @@ class Agent:
         return "OpenAI-compatible ({0})".format(host or "unknown")
 
     def _llm_info(self):
+        active = "Gemini fallback" if getattr(self, "_using_fallback", False) else "DeepSeek primary"
         return (
-            "Provider: {0}\nModel: {1}\nEndpoint: {2}".format(
+            "Provider: {0}\nModel: {1}\nEndpoint: {2}\nActive: {3}".format(
                 self._provider_name(),
                 getattr(config, "LLM_MODEL", "?"),
                 getattr(config, "LLM_BASE_URL", "?"),
+                active,
             )
         )
+    def _call_llm_with_fallback(self, messages, tools=None, stream=False):
+        primary_ok = False
+        try:
+            data = self._call_llm(messages, tools=tools, stream=stream)
+            if data and "choices" in data and data.get("choices"):
+                primary_ok = True
+                self._using_fallback = False
+                return data
+        except Exception as e:
+            print("[llm] DeepSeek request failed:", e)
+
+        if not primary_ok and getattr(config, "LLM_FALLBACK_ENABLED", False):
+            print("[llm] DeepSeek unavailable -> using Gemini fallback")
+            self._using_fallback = True
+            try:
+                return self._call_llm(
+                    messages,
+                    tools=tools,
+                    stream=stream,
+                    base_url=getattr(config, "LLM_FALLBACK_BASE_URL", ""),
+                    api_key=getattr(config, "LLM_FALLBACK_API_KEY", ""),
+                    model=getattr(config, "LLM_FALLBACK_MODEL", ""),
+                )
+            except Exception as e:
+                print("[llm] Gemini fallback failed:", e)
+                self._using_fallback = False
+                return {"choices": [{"message": {"content": "Error: both primary and fallback LLMs are unavailable."}}]}
+        self._using_fallback = False
+        return data if data is not None else {"choices": [{"message": {"content": "Error: LLM returned no response."}}]}
+
     # ------------------------------------------------------------------
     # Single agent turn (handles recursive tool calling)
     # ------------------------------------------------------------------
@@ -306,7 +342,7 @@ class Agent:
 
         while rounds < config.TOOL_CALL_MAX_ROUNDS:
             rounds += 1
-            data = self._call_llm(messages, tools=tools)
+            data = self._call_llm_with_fallback(messages, tools=tools)
             if not data or "choices" not in data:
                 final_answer = "Error: no response from LLM."
                 set_status("llm_fail", beep_type="error")
