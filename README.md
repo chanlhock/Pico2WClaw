@@ -157,9 +157,11 @@ Pico2WClaw Agentic Agent Block Diagram:
   <img src="resources/pico2wclaw-block-diagram.jpg" width="600" />
 </p>
 
-CRITICAL: One thing to take note is that if during your software development you hit into ENOMEM 12 error for Telegram, you need to set Raspberry Pi Pico 2 W into boot mode and flash it with nuke_universal.uf2.\
+__CRITICAL:__
+One thing to take note is that if during your software development you hit into ENOMEM 12 error for Telegram, you need to set Raspberry Pi Pico 2 W into boot mode and flash it with nuke_universal.uf2.\
 The nuke_universal.uf2 file can be found in the folder: /resources/nuke_universal.uf2. After that flash it with the Micropython uf2 file. Then upload back your code and run.
 ENOMEM 12 error should be gone and system working bsck.
+By doing a full factory flash wipe, you completely cleared out the corrupted cache files and forced the local storage arrays to reset their formatting layouts. Most importantly, it completely broke the infinite crash loop by forcing the board to rebuild its network file context entirely from scratch.
 
 ## :iphone: Platform tested:
 I have tested my code on:
