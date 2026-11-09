@@ -229,6 +229,7 @@ This would fix oled display and Telegram sent ENOMEM error. Hermes doesn't do th
 	import gc
 	gc.collect()
 ~~~~
+https://stackoverflow.com/questions/74883568/oserror-errno-12-enomem
 
 ## :plate_with_cutlery: Incomplete Todo Tasks
 - [X] Add Skills file capability like other Agentic Agent, such as PicoClaw, Hermes, OpenClaw, etc
