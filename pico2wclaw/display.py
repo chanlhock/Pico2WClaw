@@ -18,6 +18,24 @@ OLED_WIDTH = 128
 OLED_HEIGHT = 64
 
 # ---------------------------------------------------------------------------
+# Thread safety
+# ---------------------------------------------------------------------------
+# The Telegram worker thread and the main serial/cron thread can both touch the
+# I2C bus. MicroPython I2C is not thread-safe, so serialize everything here.
+try:
+    import _thread
+    _DISPLAY_LOCK = _thread.allocate_lock()
+except Exception:
+    class _DummyLock:
+        def acquire(self):
+            pass
+
+        def release(self):
+            pass
+
+    _DISPLAY_LOCK = _DummyLock()
+
+# ---------------------------------------------------------------------------
 # Buzzer
 # ---------------------------------------------------------------------------
 _buzzer = None
@@ -71,18 +89,48 @@ def beep_click():
 # Display
 # ---------------------------------------------------------------------------
 _oled = None
+_i2c = None
+_fail_count = 0
+_disabled_until = 0
 
 
-def _init_display():
-    global _oled
+def _recover_i2c_bus():
+    """Clock out a stuck I2C transaction and issue a STOP condition."""
     try:
+        sda = machine.Pin(I2C_SDA, machine.Pin.IN, machine.Pin.PULL_UP)
+        scl = machine.Pin(I2C_SCL, machine.Pin.OUT)
+        for _ in range(9):
+            scl.value(0)
+            utime.sleep_us(5)
+            scl.value(1)
+            utime.sleep_us(5)
+        sda = machine.Pin(I2C_SDA, machine.Pin.OUT)
+        sda.value(0)
+        utime.sleep_us(5)
+        scl.value(1)
+        utime.sleep_us(5)
+        sda.value(1)
+        utime.sleep_us(5)
+    except Exception:
+        pass
+
+
+def _init_display_nolock():
+    """Initialise the OLED. Caller must hold _DISPLAY_LOCK."""
+    global _oled, _i2c
+    try:
+        _recover_i2c_bus()
+        _i2c = machine.I2C(0, sda=machine.Pin(I2C_SDA), scl=machine.Pin(I2C_SCL), freq=100000, timeout=250000)
+        devices = _i2c.scan()
+        addr = 0x3C if 0x3C in devices else (0x3D if 0x3D in devices else None)
+        if addr is None:
+            raise OSError("OLED not found on I2C bus: %s" % [hex(d) for d in devices])
+
         from ssd1306 import SSD1306_I2C
 
-        i2c = machine.I2C(0, sda=machine.Pin(I2C_SDA), scl=machine.Pin(I2C_SCL), freq=200000)
-        _oled = SSD1306_I2C(OLED_WIDTH, OLED_HEIGHT, i2c)
+        _oled = SSD1306_I2C(OLED_WIDTH, OLED_HEIGHT, _i2c, addr=addr)
         _oled.fill(0)
         _oled.text("Pico2WClaw", 0, 0)
-#         _oled.text("  Init...", 0, 16)
         _oled.show()
         return True
     except Exception as e:
@@ -91,53 +139,83 @@ def _init_display():
         return False
 
 
-# ------------------------------------------------------------------
+def _init_display():
+    """Thread-safe wrapper around _init_display_nolock()."""
+    _DISPLAY_LOCK.acquire()
+    try:
+        return _init_display_nolock()
+    finally:
+        _DISPLAY_LOCK.release()
+
+
+def _disable_display_nolock():
+    global _oled
+    _oled = None
+
+
+# ---------------------------------------------------------------------------
 # Display state (8 lines total: 4 top + 4 bottom)
-# ------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 _top_lines = ["", "", "", ""]
 _bottom_lines = ["", "", "", ""]
 
 
 def _render():
     """Render both regions. Retries/reinits OLED instead of crashing."""
-    global _oled
-    if _oled is None:
-        if not _init_display():
+    global _oled, _fail_count, _disabled_until
+    _DISPLAY_LOCK.acquire()
+    try:
+        now = utime.ticks_ms()
+        if _oled is None and utime.ticks_diff(now, _disabled_until) < 0:
             return
-    for attempt in range(3):
-        try:
-            _oled.fill(0)
-            y = 0
-            for text in (_top_lines + _bottom_lines):
-                if text:
-                    _oled.text(str(text)[:21], 0, y)
-                y += 8
-            _oled.show()
-            return
-        except Exception as e:
-            print("[display] render failed:", e)
-            print("Recovering through attempt #:", attempt+1)
-            print("> ", end="")  # display back the prompt at serial cli
-            if attempt < 2:
-                utime.sleep_ms(100)
-                _init_display()
-            else:
-                _disable_display()
 
+        if _oled is None:
+            if not _init_display_nolock():
+                _fail_count += 1
+                if _fail_count >= 3:
+                    _disabled_until = utime.ticks_ms() + 30000
+                return
 
-def _disable_display():
-    global _oled
-    _oled = None
+        for attempt in range(3):
+            try:
+                _oled.fill(0)
+                y = 0
+                for text in (_top_lines + _bottom_lines):
+                    if text:
+                        _oled.text(str(text)[:21], 0, y)
+                    y += 8
+                _oled.show()
+                _fail_count = 0
+                return
+            except Exception as e:
+                print("[display] render failed:", e)
+                print("Recovering through attempt #:", attempt + 1)
+                print("> ", end="")  # display back the prompt at serial cli
+                _fail_count += 1
+                if _fail_count >= 3:
+                    _disable_display_nolock()
+                    _disabled_until = utime.ticks_ms() + 30000
+                    return
+                if attempt < 2:
+                    utime.sleep_ms(100)
+                    _init_display_nolock()
+    finally:
+        _DISPLAY_LOCK.release()
+
 
 def clear():
-    if _oled is None:
-        return
+    _DISPLAY_LOCK.acquire()
     try:
-        _oled.fill(0)
-        _oled.show()
-    except Exception as e:
-        print("[display] clear failed:", e)
-        _disable_display()
+        if _oled is None:
+            return
+        try:
+            _oled.fill(0)
+            _oled.show()
+        except Exception as e:
+            print("[display] clear failed:", e)
+            _disable_display_nolock()
+    finally:
+        _DISPLAY_LOCK.release()
 
 
 def show_text(line1="", line2="", line3="", line4=""):
@@ -172,6 +250,7 @@ def show_message(title, body):
     show_text(title[:21], body[:21], "", "")
     beep_click()
 
+
 # ---------------------------------------------------------------------------
 # Boot splash
 # ---------------------------------------------------------------------------
@@ -187,40 +266,26 @@ _SPLASH_FRAMES = [
 def boot_splash():
     _init_buzzer()
     display_ok = _init_display()
-#     if display_ok:
-#         for frame in _SPLASH_FRAMES:
-#             try:
-#                 clear()
-#                 _oled.text(frame, 0, 0)
-#                 _oled.show()
-#             except Exception as e:
-#                 print("[display] splash frame failed:", e)
-#                 _disable_display()
-#                 break
-#             utime.sleep_ms(200)
-#         beep(500, 0.05)
-#     else:
-#         beep_error()
-        
     if display_ok:
         gc.collect()
         # Display the Raspberry Pi logo on start-up
-        #LOGO = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00|?\x00\x01\x86@\x80\x01\x01\x80\x80\x01\x11\x88\x80\x01\x05\xa0\x80\x00\x83\xc1\x00\x00C\xe3\x00\x00~\xfc\x00\x00L'\x00\x00\x9c\x11\x00\x00\xbf\xfd\x00\x00\xe1\x87\x00\x01\xc1\x83\x80\x02A\x82@\x02A\x82@\x02\xc1\xc2@\x02\xf6>\xc0\x01\xfc=\x80\x01\x18\x18\x80\x01\x88\x10\x80\x00\x8c!\x00\x00\x87\xf1\x00\x00\x7f\xf6\x00\x008\x1c\x00\x00\x0c \x00\x00\x03\xc0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-
         LOGO = bytearray(b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00|?\x00\x01\x86@\x80\x01\x01\x80\x80\x01\x11\x88\x80\x01\x05\xa0\x80\x00\x83\xc1\x00\x00C\xe3\x00\x00~\xfc\x00\x00L'\x00\x00\x9c\x11\x00\x00\xbf\xfd\x00\x00\xe1\x87\x00\x01\xc1\x83\x80\x02A\x82@\x02A\x82@\x02\xc1\xc2@\x02\xf6>\xc0\x01\xfc=\x80\x01\x18\x18\x80\x01\x88\x10\x80\x00\x8c!\x00\x00\x87\xf1\x00\x00\x7f\xf6\x00\x008\x1c\x00\x00\x0c \x00\x00\x03\xc0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
-        #print("LOGO len:", len(LOGO))
-        fb = framebuf.FrameBuffer(LOGO,32,32, framebuf.MONO_HLSB)
-        #_oled.fill(0)
+        fb = framebuf.FrameBuffer(LOGO, 32, 32, framebuf.MONO_HLSB)
         _oled.text("Booting", 8, 56)
-        for i in range(-64,128,5):
-             _oled.blit(fb,i,16)
-             if i < -32:  _oled.text(".", 64, 56)
-             if i >= -32 and i < 0:  _oled.text(".", 72, 56)
-             if i >= 0 and i <32: _oled.text(".", 80, 56)
-             if i >= 32 and i <64: _oled.text(".", 88, 56)
-             if i >= 64: _oled.text(".", 96, 56)
-             _oled.show()
-        fb = framebuf.FrameBuffer(LOGO,32,32, framebuf.MONO_HLSB)
+        for i in range(-64, 128, 5):
+            _oled.blit(fb, i, 16)
+            if i < -32:
+                _oled.text(".", 64, 56)
+            if i >= -32 and i < 0:
+                _oled.text(".", 72, 56)
+            if i >= 0 and i < 32:
+                _oled.text(".", 80, 56)
+            if i >= 32 and i < 64:
+                _oled.text(".", 88, 56)
+            if i >= 64:
+                _oled.text(".", 96, 56)
+            _oled.show()
+        fb = framebuf.FrameBuffer(LOGO, 32, 32, framebuf.MONO_HLSB)
         _oled.fill(0)
 
         # Blit the image from the framebuffer to the oled display
@@ -229,7 +294,8 @@ def boot_splash():
         gc.collect()
     else:
         beep_error()
-        
+
+
 # ---------------------------------------------------------------------------
 # Agent UI helpers
 # ---------------------------------------------------------------------------
