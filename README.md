@@ -238,7 +238,11 @@ This would fix oled display and Telegram sent ENOMEM error. Hermes doesn't do th
 - 9th Nov 2026: Yesterday suddenly encountered ENOMEM errno 12 Telegram polling. Spent quite a considerable amount of time and energy trying to fix the issue.\
 Ended up in the morning I nuked Raspberry Pi Pico 2 W and managed to get it working back with the old code.\
 Today successfully implemented a model fallback when main LLM model is down. Primary's model is DeepSeek and fallback model is Google Gemini.
-
+- 10th Nov 2026: Occasionally gotten the oled display timeout on 1st attempt and then recover. Fixed this issue by adding a module-level lock and make all I2C paths thread-safe. Split init into locked/unlocked variants to avoid recursive deadlock. _render() guarded + cooldown (prevents the retry storm). Lastly, increase the I2C timeout.
+~~~~python
+	_i2c = machine.I2C(0, sda=..., scl=..., freq=200000, timeout=100000)
+~~~~
+  
 ## :plate_with_cutlery: Incomplete Todo Tasks
 - [X] Add Skills file capability like other Agentic Agent, such as PicoClaw, Hermes, OpenClaw, etc
 - [X] Add agent memory saving to Pi Pico 2 W internal flash instead of external SD card
