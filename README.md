@@ -235,8 +235,14 @@ This would fix oled display and Telegram sent ENOMEM error. Hermes doesn't do th
 	import gc
 	gc.collect()
 ~~~~
-https://stackoverflow.com/questions/74883568/oserror-errno-12-enomem
-
+- 9th Nov 2026: Yesterday suddenly encountered ENOMEM errno 12 Telegram polling. Spent quite a considerable amount of time and energy trying to fix the issue.\
+Ended up in the morning I nuked Raspberry Pi Pico 2 W and managed to get it working back with the old code.\
+Today successfully implemented a model fallback when main LLM model is down. Primary's model is DeepSeek and fallback model is Google Gemini.
+- 10th Nov 2026: Occasionally gotten the oled display timeout on 1st attempt and then recover. Fixed this issue by adding a module-level lock and make all I2C paths thread-safe. Split init into locked/unlocked variants to avoid recursive deadlock. _render() guarded + cooldown (prevents the retry storm). Lastly, increase the I2C timeout.
+~~~~python
+	_i2c = machine.I2C(0, sda=..., scl=..., freq=200000, timeout=100000)
+~~~~
+  
 ## :plate_with_cutlery: Incomplete Todo Tasks
 - [X] Add Skills file capability like other Agentic Agent, such as PicoClaw, Hermes, OpenClaw, etc
 - [X] Add agent memory saving to Pi Pico 2 W internal flash instead of external SD card
@@ -244,7 +250,7 @@ https://stackoverflow.com/questions/74883568/oserror-errno-12-enomem
 - [X] Add a serial cli and Telegram command of /exit so that the Pico2WClaw main program can stop. This is good for debugging in case device cannot stop even after soft reset.
 - [X] Add the ability for Pico2WClaw to recover and reconnect back when WiFi is loss/disconnected.
 - [X] Add a command /model which would display information on the provider and model of LLM used
-- [ ] Implement a model fallback when main LLM model is down. Always use main model and only fallback when main model is down and display fallback status at serial cli.
+- [X] Implement a model fallback when main LLM model is down. Always use main model and only fallback when main model is down and display fallback status at serial cli.
 - [ ] Add Watchdog in order for whole system to recover in the event Pico2WClaw gets into hung conditions. Using Pi Pico 2 W hardware Watchdog Timer (WDT) and also once reset due to WDT overflow, at the start up boot will displayed that system reset due to WDT triggered.
 - [ ] ~~Explore adding MQTT client features to Pico2WClaw so that cron job can be set up to read from sensors, such as DHT11 temperature and humidity and publish through MQTT for subscribers to use.~~
 > ***After further check and weighing between merit and demerit of MQTT implementation with Hermes's input, decided not to go ahead because there is not much merit of doing this since Pico2WClaw itself already have an AI Agent running LLM through cloud API. In addition it can take in natural language prompt through Telegram and send data to Telegram.***
