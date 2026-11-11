@@ -97,6 +97,8 @@ def i2c_scan(bus=0):
 def device_info():
     """Return Pico 2 W hardware info."""
     import sys
+    import gc
+    gc.collect()
     try:
         import network
         wlan = network.WLAN()
