@@ -3,6 +3,7 @@
 A minimal agentic AI runtime for the **Raspberry Pi Pico 2 W** (RP2350, 520 KB SRAM, 4 MB flash, WiFi).
 
 This is a heavily trimmed-down port of the Pico2WClaw/OpenClaw concept:
+
 - ✅ LLM API integration (OpenAI-compatible)
 - ✅ Tool calling (GPIO, ADC, PWM, I2C, exec)
 - ✅ On-device memory (keyword-based)
@@ -14,14 +15,14 @@ This is a heavily trimmed-down port of the Pico2WClaw/OpenClaw concept:
 
 | File | Role |
 |---|---|
-| `boot.py` | Entry point — WiFi, NTP, starts agent + Telegram thread |
+| `boot2.py` | Entry point — WiFi, NTP, starts agent + Telegram thread |
 | `agent.py` | Agent loop — LLM call, tool execution, memory, skills |
 | `tools.py` | Tool registry: GPIO, ADC, PWM, I2C, exec, info, LED blink, buzzer, DHT11 |
 | `pico_memory.py` | File-backed keyword memory store (default: `/memory/`) |
 | `pico_cron.py` | Interval cron scheduler — GPIO/ADC/DHT monitoring + Telegram status (persisted in `/cron/jobs.txt`) |
 | `skills_loader.py` | Loads `skills/*.py` skill files at agent startup |
 | `led_blink.py` | Persistent onboard-LED blink helper (`led_blink_start` by Hz, `start_blink` by ms period, `led_blink_stop`, `led_toggle`) |
-| `config.py` | WiFi SSID/password, LLM API key/model, Telegram bot token |
+| `config.py` | WiFi SSID/password, LLM API key/model, Telegram bot token, plus optional WATCHDOG_* settings |
 | `ssd1306.py` | SSD1306 OLED I2C driver (required for display output) |
 | `display.py` | OLED + buzzer wrapper: status UI, boot splash, tone playback |
 
@@ -37,7 +38,7 @@ This is a heavily trimmed-down port of the Pico2WClaw/OpenClaw concept:
    - Open **Thonny**
    - Select **MicroPython (RP2350)** as the interpreter
    - Save `config.py` to the Pico and edit your WiFi + API key + Telegram bot token
-   - Save `boot.py`, `agent.py`, `pico_memory.py`, `tools.py`, `led_blink.py`, `ssd1306.py`, `display.py`, `skills_loader.py`, `pico_cron.py` to the Pico
+   - Save `boot2.py`, `agent.py`, `pico_memory.py`, `tools.py`, `led_blink.py`, `ssd1306.py`, `display.py`, `skills_loader.py`, `pico_cron.py` to the Pico
    - If you have custom skills, create the `skills/` folder and place your `.py` skill files inside
 
 3. Power-cycle the Pico. It will connect to WiFi and print a `>` prompt.
@@ -45,6 +46,7 @@ This is a heavily trimmed-down port of the Pico2WClaw/OpenClaw concept:
 ## Usage
 
 At the `>` prompt, type messages like:
+
 - `Turn on LED on GPIO 25`
 - `Read temperature from ADC 26`
 - `Scan the I2C bus`
@@ -63,6 +65,7 @@ At the `>` prompt, type messages like:
 - `/exit` — stop the agent (serial + Telegram)
 - `/model` — show LLM provider and model
 - `/wifi` — check/reconnect WiFi
+- `/wdt` — show watchdog status and recent watchdog reset log
 
 ## Onboard LED Blinking
 
@@ -74,6 +77,7 @@ Use `led_blink_start`, `start_blink`, `led_blink_stop`, and `led_toggle` for per
 - `led_toggle()` — single manual toggle.
 
 Example Telegram/serial prompts:
+
 - `Blink the onboard LED every 2 seconds` → calls `start_blink(2000)`
 - `Blink the onboard LED at 1 Hz` → calls `led_blink_start(1)`
 - `Stop blinking`
@@ -100,6 +104,7 @@ Pico2WClaw supports extensible **MicroPython skills** placed in a `skills/` fold
 At startup, `agent.py` calls `skills_loader.load_skills()`, which scans `skills/*.py`, loads their instructions into the system prompt under `[Loaded skills]`, and merges any tool definitions into the main `TOOL_REGISTRY`.
 
 Available serial/Telegram commands:
+
 - `/skills` — list all loaded skill names
 - `/skill_read <name>` — read a skill's `SKILL_INSTR` text
 - `/cron` — manage cron jobs (`list`/`add`/`del`/`on`/`off`)
@@ -115,6 +120,7 @@ Available serial/Telegram commands:
 - Cron: `dht` is a supported cron type and can update the OLED bottom lines and send Telegram.
 
 Examples:
+
 ```text
 Read DHT11 on GPIO4
 Create a cron job to read from DHT11 GPIO4 every 5 minutes and send to Telegram the message "From DHT11 sensor every 5mins:"+dht value
@@ -124,6 +130,7 @@ Create a cron job to read from DHT11 GPIO4 every 5 minutes and send to Telegram 
 DHT cron templates support `{value}`, `{pin}`, `{type}`, `{temp}`, and `{hum}` placeholders. `{temp}` and `{hum}` are filled from the latest DHT reading.
 
 ### Cron examples
+
 ```text
 /cron                          # list jobs
 /cron list                     # list jobs
@@ -135,11 +142,13 @@ DHT cron templates support `{value}`, `{pin}`, `{type}`, `{temp}`, and `{hum}` p
 /cron off 1                    # disable job id 1
 /cron del 1                    # delete job id 1
 ```
-Message templates support `{value}`, `{pin}`, `{type}` placeholders, e.g. `GPIO{pin}={value}`.
+
+Message templates support `{value}`, `{pin}`, `{type}`, `{temp}`, and `{hum}` placeholders, e.g. `GPIO{pin}={value}` or `temp {temp}C, humidity {hum}%`.
 
 Jobs are persisted in `/cron/jobs.txt` (survives `/clear` and reboots). Only one job runs per tick; execution uses the main loop (no LLM call).
 
 **Skill file contract:**
+
 ```python
 SKILL_INSTR = "1-3 sentences describing when and how to use this skill."
 
@@ -153,20 +162,59 @@ TOOLS = {
 ```
 
 **Important MicroPython constraints:**
+
 - Import every dependency at the top of the skill file (`time`, `machine`, etc.). The `exec()` namespace does not inherit the agent's globals.
 - Do not name skill files `memory.py`, `time.py`, `re.py`, etc. — they may shadow built-ins. Use project-prefixed names.
 - Avoid heavy stdlib: no `collections.Counter`, `re.findall`, `str.isalnum`, or `os.path`.
 - Skills are executed in an isolated `exec()` namespace. No side effects at import time.
 
+## Watchdog (WDT)
+
+The project supports a hardware watchdog timer for automatic recovery from hangs.
+
+### Configuration (`config.py`)
+
+```python
+WATCHDOG_ENABLED = True
+WATCHDOG_TIMEOUT_MS = 4000          # WDT timeout (ms)
+WATCHDOG_FEED_INTERVAL_MS = 500     # feed interval (ms)
+WATCHDOG_LOG_FILE = "/wdt.log"
+WATCHDOG_LOG_MAX_LINES = 20
+```
+
+When enabled, the boot script starts a hardware watchdog and a periodic feed timer. If the board hangs for longer than `WATCHDOG_TIMEOUT_MS`, the hardware resets the Pico.
+
+### Reviewing WDT activity
+
+After a WDT‑triggered reset, the boot process logs the event (with the current time converted to UTC+8) into `/wdt.log`. You can view the status and recent resets with the `/wdt` command:
+
+```text
+/wdt
+```
+
+Output looks like:
+
+```text
+WDT enabled: True
+Latest reset: 2026-11-11 08:31:22+0800
+Recent resets (up to 5):
+  2026-11-11 08:31:22+0800
+  2026-11-10 14:22:09+0800
+```
+
+To disable the watchdog, send `/exit`. The agent will deinitialize the WDT, update `config.py`, and stop.
+
 ## OLED + Buzzer
 
 The agent auto-initialises the SSD1306 display and buzzer on boot:
+
 - **Display**: I2C on GPIO20/21, 128×64
 - **Buzzer**: PWM on GPIO22
 - **Status updates**: Ready, Thinking, Tool, Error, WiFi/LLM status
 - **Beeps**: Success tone (ascending), error tone (descending), click tick
 
 The LLM can also control the display and buzzer via `display_text`, `display_bottom`, `clear_display_bottom`, and `beep_now` tools.
+
 - **Layout**: 8 lines at 8px spacing. Top 4 lines are persistent status/title; bottom 4 lines are transient detail.
 - **Tunes**: `buzzer_play_tune` accepts an optional `title` and shows it on the bottom lines during playback, then clears them.
 
@@ -175,6 +223,7 @@ The LLM can also control the display and buzzer via `display_text`, `display_bot
 Set `LLM_BASE_URL`, `LLM_API_KEY`, and `LLM_MODEL` in `config.py`.
 
 Works with any OpenAI-compatible API:
+
 - OpenAI GPT-4o / GPT-4o-mini
 - Google Gemini (via `/v1beta/openai` compatibility endpoint)
 - Ollama local (`http://<ip>:11434/v1`)
@@ -189,3 +238,4 @@ For best latency on Pico, use a fast/small model (e.g., `gemini-2.0-flash-lite`,
 - Do not name files `memory.py`, `time.py`, `re.py`, etc. — they may shadow MicroPython built-ins. The memory module is named `pico_memory.py` to avoid this.
 - Tool calls are recursive up to `TOOL_CALL_MAX_ROUNDS` (default 4) per turn.
 - No sub-agents or cron — kept simple for 520 KB SRAM.
+- The hardware watchdog will automatically reset the board if the program hangs for longer than the configured `WATCHDOG_TIMEOUT_MS`. Recent resets are recorded in `/wdt.log`.

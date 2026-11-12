@@ -411,6 +411,59 @@ class Agent:
             except Exception:
                 pass
 
+    def disable_watchdog(self):
+        """Disable the hardware watchdog and update config.py on the device."""
+        import config as _cfg
+        try:
+            with open("/config.py", "r") as f:
+                lines = f.readlines()
+            new_lines = []
+            for line in lines:
+                if line.startswith("WATCHDOG_ENABLED"):
+                    new_lines.append("WATCHDOG_ENABLED = False\n")
+                else:
+                    new_lines.append(line)
+            with open("/config.py", "w") as f:
+                f.writelines(new_lines)
+        except Exception as e:
+            print("[wdt] config update error:", e)
+        config.WATCHDOG_ENABLED = False
+        if getattr(config, "WDT", None) is not None:
+            try:
+                config.WDT.deinit()
+            except Exception:
+                pass
+            config.WDT = None
+        if getattr(config, "_wdt_timer", None) is not None:
+            try:
+                config._wdt_timer.deinit()
+            except Exception:
+                pass
+            config._wdt_timer = None
+        print("[wdt] watchdog disabled via /exit")
+
+    def wdt_status_text(self):
+        """Return string describing WDT state and log contents."""
+        enabled = config.WATCHDOG_ENABLED
+        lines = ["WDT enabled: {}".format(enabled)]
+        try:
+            with open("/wdt.log", "r") as f:
+                log_lines = f.readlines()
+        except Exception:
+            log_lines = []
+        if log_lines:
+            lines.append("Latest reset: {}".format(log_lines[-1].strip()))
+            lines.append("Recent resets (up to 5):")
+            for line in reversed(log_lines[-5:]):
+                lines.append("  " + line.strip())
+        else:
+            lines.append("No WDT reset events recorded.")
+        return "\n".join(lines)
+
+    def wdt_status(self):
+        """Print WDT status to serial."""
+        print(self.wdt_status_text())
+
     # ------------------------------------------------------------------
     # Serial REPL loop (short-blocking input — input() blocks the main
     # thread and prevents hardware timer callbacks from firing on time,
@@ -420,7 +473,7 @@ class Agent:
         print("=" * 90)
         print(f"  {config.AGENT_NAME} ready.")
         print("  Type a message and press Enter.")
-        print("  Commands: /info, /memory, /clear, /tools, /help, /cron, /model, /exit, /wifi,")
+        print("  Commands: /info, /memory, /clear, /tools, /help, /cron, /model, /exit, /wdt, /wifi,")
         print("            /skills, /skill_read <name>")
         print("  Press CTRL-C to break program")
         print("=" * 90)
@@ -561,13 +614,18 @@ class Agent:
                     "  /skill_read <name> - read a skill's instructions\n"
                     "  /cron   - manage cron jobs (list/add/del/on/off)\n"
                     "  /exit   - stop the agent\n"
+                    "  /wdt   - show WDT status and watchdog reset log\n"
                     "  /model  - show LLM provider and model\n"
                     "  /wifi   - check/reconnect WiFi\n"
                     "  /help   - show this help\n"
                     "Or type a question/request and press Enter to chat with the agent."
                 )
                 return
+            if user_input == "/wdt":
+                self.wdt_status()
+                return
             if user_input == "/exit":
+                self.disable_watchdog()
                 print("[agent] stopping...")
                 self.stop()
                 return
@@ -780,6 +838,7 @@ class Agent:
                         "  /skill_read <name> - read a skill's instructions\n"
                         "  /cron   - manage cron jobs (list/add/del/on/off)\n"
                         "  /exit   - stop the agent\n"
+                        "  /wdt   - show WDT status and watchdog reset log\n"
                         "  /model  - show LLM provider and model\n"
                         "  /wifi   - check/reconnect WiFi\n"
                         "  /help   - show this help\n"
@@ -858,7 +917,10 @@ class Agent:
                                 reply = "Job #{0} not found.".format(jid)
                         except ValueError:
                             reply = "Usage: /cron on|off <id>"
+                elif text == "/wdt":
+                    reply = self.wdt_status_text()
                 elif text == "/exit":
+                    self.disable_watchdog()
                     self.stop()
                     reply = "Stopping agent."
                 elif text == "/model":

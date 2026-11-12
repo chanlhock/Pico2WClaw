@@ -48,3 +48,13 @@ CRON_DEFAULT_CHAT_ID = None  # falls back to first TELEGRAM_ALLOWED_USERS entry
 WIFI_RECONNECT_ENABLED = True
 WIFI_RECONNECT_COOLDOWN_MS = 10000
 WIFI_AUTO_SOFT_RESET_MS = 0  # 0 disables automatic soft reset after prolonged outage
+
+# ------------------------------------------------------------
+# Watchdog
+# ------------------------------------------------------------
+WATCHDOG_ENABLED = False
+WATCHDOG_TIMEOUT_MS = 4000
+WATCHDOG_FEED_INTERVAL_MS = 500
+WATCHDOG_LOG_FILE = "/wdt.log"
+WATCHDOG_LOG_MAX_LINES = 20
+WDT = None

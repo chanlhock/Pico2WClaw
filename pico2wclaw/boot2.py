@@ -3,11 +3,14 @@ boot.py — Boot script for Pico2WClaw on Raspberry Pi Pico 2 W.
 Runs on power-up / reset. Connects to WiFi and starts the agent serial loop.
 """
 
+import os
 import time
 import machine
 from machine import Pin
 
 import config
+
+# Capture the on-device config.py text so /exit can rewrite watchdog flags.
 
 # ------------------------------------------------------------------
 # WiFi connection
@@ -38,10 +41,71 @@ def connect_wifi(ssid, password, timeout=20):
 # Main entry
 # ------------------------------------------------------------------
 def main():
+    # ---- Watchdog ----
+    def _wdt_feed_timer(t):
+        if config.WDT is not None and config.WATCHDOG_ENABLED:
+            try:
+                config.WDT.feed()
+            except Exception:
+                pass
+
+    if config.WATCHDOG_ENABLED:
+        config.WDT = machine.WDT(timeout=config.WATCHDOG_TIMEOUT_MS)
+        _wdt_timer = machine.Timer(-1)
+        config._wdt_timer = _wdt_timer
+        _wdt_timer.init(period=config.WATCHDOG_FEED_INTERVAL_MS, mode=machine.Timer.PERIODIC, callback=_wdt_feed_timer)
+
+    # Record reset cause as early as possible
+    config._wdt_reset_cause = machine.reset_cause()
+    # ---- End watchdog ----
+    # ---- Watchdog logging ----
+
+    def _log_wdt_reset():
+        """Log a WDT overflow reset to /wdt.log using UTC+8 local time."""
+        if config._wdt_reset_cause != machine.WDT_RESET:
+            return
+        try:
+            # Only log if we have a usable NTP time
+            if time.time() <= 0:
+                return
+        except Exception:
+            return
+        try:
+            # MicroPython time.time() is UTC epoch; localtime() gives UTC
+            t = time.localtime()
+            # Convert to UTC+8
+            t8 = (t[0], t[1], t[2],
+                  (t[3] + 8) % 24,
+                  t[4], t[5], t[6], t[7], t[8])
+            stamp = time.strftime("%Y-%m-%d %H:%M:%S+0800", t8)
+        except Exception:
+            stamp = "unknown-time"
+        entry = "WDT_RESET|{0}\n".format(stamp)
+        try:
+            with open(config.WATCHDOG_LOG_FILE, "r") as f:
+                lines = f.readlines()
+        except Exception:
+            lines = []
+        lines.append(entry)
+        try:
+            max_lines = config.WATCHDOG_LOG_MAX_LINES
+        except Exception:
+            max_lines = 20
+        if max_lines:
+            lines = lines[-max_lines:]
+        try:
+            with open(config.WATCHDOG_LOG_FILE, "w") as f:
+                f.writelines(lines)
+        except Exception as e:
+            print("[wdt] log write failed:", e)
+
+    config._wdt_reset_cause = machine.reset_cause()
+    # ---- End watchdog logging ----
+
     # Onboard LED (GPIO25 on Pico 2 W)
     led = Pin("LED", Pin.OUT)
     led.on()
-
+    
     # Initialise display + buzzer (non-fatal if missing)
     from display import boot_splash, set_status
     boot_splash()
@@ -64,6 +128,9 @@ def main():
             print("[boot] time synced via NTP")
         except Exception as e:
             print("[boot] NTP skipped:", e)
+
+    # Log a WDT reset if this boot was caused by the watchdog
+    _log_wdt_reset()
 
     led.off()
 
