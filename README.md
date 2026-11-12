@@ -243,7 +243,11 @@ Today successfully implemented a model fallback when main LLM model is down. Pri
 ~~~~python
 	_i2c = machine.I2C(0, sda=..., scl=..., freq=200000, timeout=100000)
 ~~~~
-  
+- 11th Nov 2026: I have finally completed the code for my Pico2WClaw AI agent, even implemented Watch Dog timer for system recovery in case something happen causing the microcontroller to be in hung state.\
+It would also recover from WiFi failure. I turned off my WiFi at night at 10.30pm. Powered it up with a power bank at 6.50pm. I plan to run it until the power bank runs out of battery which might be few days.\
+This is the system robustness acid test. 
+- 12th Nov 2026: 24 hours milestone, all of agent's system still functioning as normal🤗
+
 ## :plate_with_cutlery: Incomplete Todo Tasks
 - [X] Add Skills file capability like other Agentic Agent, such as PicoClaw, Hermes, OpenClaw, etc
 - [X] Add agent memory saving to Pi Pico 2 W internal flash instead of external SD card
@@ -252,7 +256,7 @@ Today successfully implemented a model fallback when main LLM model is down. Pri
 - [X] Add the ability for Pico2WClaw to recover and reconnect back when WiFi is loss/disconnected.
 - [X] Add a command /model which would display information on the provider and model of LLM used
 - [X] Implement a model fallback when main LLM model is down. Always use main model and only fallback when main model is down and display fallback status at serial cli.
-- [ ] Add Watchdog in order for whole system to recover in the event Pico2WClaw gets into hung conditions. Using Pi Pico 2 W hardware Watchdog Timer (WDT) and also once reset due to WDT overflow, at the start up boot will displayed that system reset due to WDT triggered.
+- [X] Add Watchdog in order for whole system to recover in the event Pico2WClaw gets into hung conditions. Using Pi Pico 2 W hardware Watchdog Timer (WDT) and also once reset due to WDT overflow, at the start up boot will displayed that system reset due to WDT triggered.
 - [ ] ~~Explore adding MQTT client features to Pico2WClaw so that cron job can be set up to read from sensors, such as DHT11 temperature and humidity and publish through MQTT for subscribers to use.~~
 > ***After further check and weighing between merit and demerit of MQTT implementation with Hermes's input, decided not to go ahead because there is not much merit of doing this since Pico2WClaw itself already have an AI Agent running LLM through cloud API. In addition it can take in natural language prompt through Telegram and send data to Telegram.***
 
