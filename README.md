@@ -37,7 +37,8 @@ More detail information about Pico2WClaw usage can be obtained here: [Pico2WClaw
 Pico2WClaw detail technical documentation of how it works can be obtained here: [Pico2WClaw Docs](/resources/pico2wclaw_docs.md) 
 
 ## :computer: Development Platform
-I have tested on Raspberry Pi Pico 2 W running Thonny. It may also work on Raspberry Pi Pico W.
+I have tested on Raspberry Pi Pico 2 W running Thonny.\
+It will not work on Raspberry Pi Pico W because its 264kB is not enough for the agent to run.
 
 On the Raspberry Pi Pico 2 W:
 1. Do ensure that the Raspberry Pi Pico 2 W is flashed with the correct *.uf2 file
