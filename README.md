@@ -250,7 +250,7 @@ This is the system robustness acid test.
 - 13th Nov 2026: Passed the 48 hours milestone.... All systems functioning.
 - 14th Nov 2026: Accomplished 72 hours milestone (3 days) running on battery...\
 At 10.58pm Pico2WClaw sent its last Telegram message. My house Wifi turned off at 11.09pm during weekend. When WiFi turned back at 2.00am, Pico2WClaw never reconnected because the powerbank was too low to power on the device.
-- 15th Nov 2026: Connected to laptop , the device power up and performed as normal. I found ine issue is that after i issue the /exit prompt, i am able to see Pico2WClaw files through Thonny. I found that instead of changing only config.py file's Enable WDT to false, the whole file is blanked.\
+- 15th Nov 2026: Connected to laptop , the device power up and performed as normal. I found ine issue is that after i issue the /exit prompt, i am able to see Pico2WClaw files through Thonny. I found that instead of changing only config.py file's WATCHDOG_ENABLED to false, the whole file is blanked.\
 This is an issue to look into. Otherwise Pico2WClaw software stack is deemed stable and robust.
 
 ## :plate_with_cutlery: Incomplete Todo Tasks
@@ -264,7 +264,7 @@ This is an issue to look into. Otherwise Pico2WClaw software stack is deemed sta
 - [X] Add Watchdog in order for whole system to recover in the event Pico2WClaw gets into hung conditions. Using Pi Pico 2 W hardware Watchdog Timer (WDT) and also once reset due to WDT overflow, at the start up boot will displayed that system reset due to WDT triggered.
 - [ ] ~~Explore adding MQTT client features to Pico2WClaw so that cron job can be set up to read from sensors, such as DHT11 temperature and humidity and publish through MQTT for subscribers to use.~~
 > ***After further check and weighing between merit and demerit of MQTT implementation with Hermes's input, decided not to go ahead because there is not much merit of doing this since Pico2WClaw itself already have an AI Agent running LLM through cloud API. In addition it can take in natural language prompt through Telegram and send data to Telegram.***
-- [ ] After issuing /exit prompts, device is able to disable Watchdog Timer but it is because config.py file is empty instead of only setting Enable WDT to false.
+- [ ] After issuing /exit prompts, device is able to disable Watchdog Timer but it is because config.py file is empty instead of only setting WATCHDOG_ENABLED to false.
 
 ## :coffee: Buy Me a Coffee
 If you appreciate my work, do support me by...<br>
