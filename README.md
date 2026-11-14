@@ -249,7 +249,7 @@ This is the system robustness acid test.
 - 12th Nov 2026: 24 hours milestone, all of agent's system still functioning as normal🤗
 - 13th Nov 2026: Passed the 48 hours milestone.... All systems functioning.
 - 14th Nov 2026: Accomplished 72 hours milestone (3 days) running on battery...\
-At 10.58pm Pico2WClaw sent its last Telegram message. My house Wifi turned off at 11.09pm during weekend. When WiFi turned back at 2.00am, Pico2WClaw never reconnected because the powerbank was too low to power on the device.
+At 10.58pm Pico2WClaw sent its last Telegram message. My house Wifi turned off at 11.00pm during weekend. When WiFi turned back at 2.00am, Pico2WClaw never reconnected because the powerbank was too low to power on the device.
 - 15th Nov 2026: Connected to laptop , the device power up and performed as normal. I found ine issue is that after i issue the /exit prompt, i am able to see Pico2WClaw files through Thonny. I found that instead of changing only config.py file's WATCHDOG_ENABLED to false, the whole file is blanked.\
 This is an issue to look into. Otherwise Pico2WClaw software stack is deemed stable and robust.
 
