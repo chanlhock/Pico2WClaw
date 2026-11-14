@@ -248,7 +248,8 @@ It would also recover from WiFi failure. I turned off my WiFi at night at 10.30p
 This is the system robustness acid test. 
 - 12th Nov 2026: 24 hours milestone, all of agent's system still functioning as normal🤗
 - 13th Nov 2026: Passed the 48 hours milestone.... All systems functioning.
-- 14th Nov 2026: Accomplished 72 hours milestone (3 days) running on battery...
+- 14th Nov 2026: Accomplished 72 hours milestone (3 days) running on battery...\
+At 10.58pm Pico2WClaw sent its last Telegram message. My house Wifi turned off at 11.09pm during weekend. When WiFi turned back at 2.00am, Pico2WClaw never reconnected because the powerbank was too low to power on the device.
 
 ## :plate_with_cutlery: Incomplete Todo Tasks
 - [X] Add Skills file capability like other Agentic Agent, such as PicoClaw, Hermes, OpenClaw, etc
