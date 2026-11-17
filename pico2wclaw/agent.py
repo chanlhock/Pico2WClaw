@@ -7,6 +7,8 @@ import json
 import sys
 import time
 from machine import Pin, freq
+import os
+import machine
 
 import config
 from pico_memory import Memory
@@ -411,36 +413,72 @@ class Agent:
             except Exception:
                 pass
 
+#     def disable_watchdog(self):
+#         """Disable the hardware watchdog and update config.py on the device."""
+#         import config as _cfg
+#         try:
+#             with open("/config.py", "r") as f:
+#                 lines = f.readlines()
+#             new_lines = []
+#             for line in lines:
+#                 if line.startswith("WATCHDOG_ENABLED"):
+#                     new_lines.append("WATCHDOG_ENABLED = False\n")
+#                 else:
+#                     new_lines.append(line)
+#             with open("/config.py", "w") as f:
+#                 f.writelines(new_lines)
+#         except Exception as e:
+#             print("[wdt] config update error:", e)
+#         config.WATCHDOG_ENABLED = False
+#         if getattr(config, "WDT", None) is not None:
+#             try:
+#                 config.WDT.deinit()
+#             except Exception:
+#                 pass
+#             config.WDT = None
+#         if getattr(config, "_wdt_timer", None) is not None:
+#             try:
+#                 config._wdt_timer.deinit()
+#             except Exception:
+#                 pass
+#             config._wdt_timer = None
+#         print("[wdt] watchdog disabled via /exit")
+
+
     def disable_watchdog(self):
-        """Disable the hardware watchdog and update config.py on the device."""
+        """Safely set WATCHDOG_ENABLED = False and reboot cleanly."""
+        import os
+        import machine
         import config as _cfg
+
+        # 1. Feed the WDT so it doesn't fire while writing to flash
+        if getattr(_cfg, "WDT", None) is not None:
+            try:
+                _cfg.WDT.feed()
+            except Exception:
+                pass
+
+        # 2. Atomically update config.py using a temporary file
         try:
             with open("/config.py", "r") as f:
                 lines = f.readlines()
-            new_lines = []
-            for line in lines:
-                if line.startswith("WATCHDOG_ENABLED"):
-                    new_lines.append("WATCHDOG_ENABLED = False\n")
-                else:
-                    new_lines.append(line)
-            with open("/config.py", "w") as f:
-                f.writelines(new_lines)
+
+            new_lines = [
+                "WATCHDOG_ENABLED = False\n" if line.startswith("WATCHDOG_ENABLED") else line
+                for line in lines
+            ]
+
+            with open("/config.tmp", "w") as f:
+                f.write("".join(new_lines))
+                f.flush()
+
+            os.rename("/config.tmp", "/config.py")
         except Exception as e:
             print("[wdt] config update error:", e)
-        config.WATCHDOG_ENABLED = False
-        if getattr(config, "WDT", None) is not None:
-            try:
-                config.WDT.deinit()
-            except Exception:
-                pass
-            config.WDT = None
-        if getattr(config, "_wdt_timer", None) is not None:
-            try:
-                config._wdt_timer.deinit()
-            except Exception:
-                pass
-            config._wdt_timer = None
-        print("[wdt] watchdog disabled via /exit")
+            return  # Abort reboot if config failed to save
+
+        print("[wdt] config updated; rebooting to apply...")
+
 
     def wdt_status_text(self):
         """Return string describing WDT state and log contents."""

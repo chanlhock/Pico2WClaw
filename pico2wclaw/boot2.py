@@ -95,7 +95,7 @@ def main():
             lines = lines[-max_lines:]
         try:
             with open(config.WATCHDOG_LOG_FILE, "w") as f:
-                f.writelines(lines)
+                f.write("".join(lines))
         except Exception as e:
             print("[wdt] log write failed:", e)
 
