@@ -17,7 +17,7 @@ Pico2WClaw consists of the following modules:
 | Boot | `boot2.py` | WiFi connection, NTP sync, display splash, start agent + Telegram thread |
 | Agent | `agent.py` | Core loop, LLM client, tool orchestration, serial REPL, Telegram polling, cron tick |
 | Tools | `tools.py` | Tool registry, JSON schemas for LLM, hardware callables (GPIO, ADC, PWM, I2C, exec, display, buzzer, LED, cron) |
-| Memory | `memory.py` (as `pico_memory.py`) | On-device keyword/TF-IDF memory, persisted to `/memory/transcript.txt` |
+| Memory | `pico_memory.py` | On-device keyword/TF-IDF memory, persisted to `/memory/transcript.txt` |
 | Display | `display.py` | SSD1306 OLED driver wrapper, buzzer tones, status UI, boot splash |
 | LED Blink | `led_blink.py` | Persistent onboard-LED blink using `machine.Timer(0)` with minimum-gap guard |
 | Config | `config.py` | WiFi credentials, LLM endpoint/model/key, Telegram token, agent name, system prompt, cron settings |
@@ -107,7 +107,7 @@ User Input (Serial REPL or Telegram)
          | uses
          v
    +-------------+     +-------------+     +-------------+
-   | memory.py   |     | display.py  |     | led_blink.py|
+   | pico_memory.py   |     | display.py  |     | led_blink.py|
    | (TF-IDF)    |     | (OLED+buz)  |     | (Timer(0))  |
    +-------------+     +-------------+     +-------------+
          |
@@ -271,7 +271,7 @@ It returns `True` if any message was processed, allowing `boot2.py`'s `_tg_worke
 
 ### 4.4 Direct Telegram Commands
 
-To avoid LLM latency and API cost for simple queries, `/info`, `/tools`, `/memory`, `/clear`, `/cron`, and `/wifi` are handled directly in `telegram_loop()`:
+To avoid LLM latency and API cost for simple queries, `/info`, `/tools`, `/memory`, `/clear`, `/cron`, `/wifi`, `/wdt`, and `/wdt_test` are handled directly in `telegram_loop()`:
 
 - `/info`: calls `tools.device_info()` and sends the result.
 - `/tools`: lists all tool names and descriptions from `get_tool_defs()`.
@@ -727,7 +727,141 @@ Additional notes:
 
 ---
 
-## 10. WiFi Recovery (Non-Blocking Reconnect)
+### 10. Watchdog (WDT)
+
+The hardware watchdog (WDT) provides automatic recovery from hangs. If the board becomes unresponsive for longer than the configured timeout, the hardware resets the Pico 2 W (RP2350). The WDT is disabled by default and must be explicitly enabled in `config.py`.
+
+### 10.1 Configuration (`config.py`)
+
+```python
+# Watchdog
+WATCHDOG_ENABLED = False
+WATCHDOG_TIMEOUT_MS = 4000          # WDT timeout (ms) - reboot if hang exceeds this
+WATCHDOG_FEED_INTERVAL_MS = 500     # feed interval (ms) - must be < timeout
+WATCHDOG_LOG_FILE = "/wdt.log"      # log file for WDT overflow resets
+WATCHDOG_LOG_MAX_LINES = 20         # keep last N reset entries
+```
+
+Key points:
+- `WATCHDOG_TIMEOUT_MS` must be greater than `WATCHDOG_FEED_INTERVAL_MS`. If the board hangs for >4 s, the hardware resets.
+- `WATCHDOG_FEED_INTERVAL_MS` = 500 ms means the feed timer refreshes the WDT every 500 ms. If the feed timer stops (e.g., due to a crash), the WDT will overflow after `WATCHDOG_TIMEOUT_MS` and reset the device.
+- `WATCHDOG_ENABLED = False` by default; set to `True` to enable.
+
+### 10.2 Boot Sequence (WDT initialization)
+
+When `WATCHDOG_ENABLED = True`, `boot2.py` does the following at startup:
+
+```python
+# 1. Create hardware watchdog
+config.WDT = machine.WDT(timeout=config.WATCHDOG_TIMEOUT_MS)
+
+# 2. Start periodic feed timer
+_wdt_timer = machine.Timer(-1)
+_wdt_timer.init(
+    period=config.WATCHDOG_FEED_INTERVAL_MS,
+    mode=machine.Timer.PERIODIC,
+    callback=_wdt_feed_timer
+)
+
+def _wdt_feed_timer(t):
+    if config.WDT is not None and config.WATCHDOG_ENABLED:
+        try:
+            config.WDT.feed()
+        except Exception:
+            pass
+```
+
+The feed timer calls `WDT.feed()` every 500 ms to "pet" the watchdog. If the main loop stops responding (e.g., due to a deadlock or infinite loop), the feed timer stops, and after 4 s the hardware WDT resets the board.
+
+### 10.3 WDT Reset Logging
+
+When the board reboots due to a WDT overflow, `boot2.py` logs the event to `/wdt.log` with the local time (UTC+8):
+
+```python
+def _log_wdt_reset():
+    if config._wdt_reset_cause != machine.WDT_RESET:
+        return
+    try:
+        now = time.time()
+        if now <= 0:
+            return
+        t8 = time.localtime(now + 28800)  # +8 hours for UTC+8
+        stamp = "{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}+0800".format(
+            t8[0], t8[1], t8[2], t8[3], t8[4], t8[5]
+        )
+    except Exception:
+        stamp = "unknown-time"
+    entry = "WDT_RESET|{0}\n".format(stamp)
+    # ... write to config.WATCHDOG_LOG_FILE
+```
+
+Each entry is a line like `WDT_RESET|2026-11-11 08:31:22+0800`. The log keeps the last `WATCHDOG_LOG_MAX_LINES` (20) entries.
+
+### 10.4 WDT Commands
+
+| Command | Description |
+|---------|-------------|
+| `/wdt` | Show WDT status and recent reset log |
+| `/wdt_test` | Trigger an intentional WDT reset (test the watchdog) |
+| `/exit` | Disable WDT, update `config.py`, and stop the agent |
+
+#### `/wdt` output example
+
+```text
+WDT enabled: True
+Latest reset: 2026-11-11 08:31:22+0800
+Recent resets (up to 5):
+  2026-11-11 08:31:22+0800
+  2026-11-10 14:22:09+0800
+```
+
+#### `/wdt_test` behavior
+
+1. Stops the feed timer (`config._wdt_timer.deinit()`).
+2. Enters an infinite loop, blocking all execution.
+3. After `WATCHDOG_TIMEOUT_MS` (4 s), the hardware WDT resets the board.
+4. Boot logs the reset to `/wdt.log`.
+
+This is a useful test to verify the WDT is working correctly.
+
+#### `/exit` behavior
+
+1. Feeds the WDT (`_cfg.WDT.feed()`) so it doesn't fire while writing to flash.
+2. Deinitializes the WDT.
+3. Updates `config.py` to set `WATCHDOG_ENABLED = False` (using atomic temp-file rename).
+4. Stops the agent.
+
+### 10.5 Code Example: Enable and Test WDT
+
+**Enable WDT in `config.py`:**
+
+```python
+WATCHDOG_ENABLED = True
+WATCHDOG_TIMEOUT_MS = 4000
+WATCHDOG_FEED_INTERVAL_MS = 500
+WATCHDOG_LOG_FILE = "/wdt.log"
+WATCHDOG_LOG_MAX_LINES = 20
+```
+
+**Test the WDT:**
+
+1. Boot the device with WDT enabled.
+2. Open serial terminal.
+3. Type `/wdt` to verify status.
+4. Type `/wdt_test` and wait ~5 seconds.
+5. Watch for the hardware reset (LED blinks, status changes).
+6. Check `/wdt.log` for the reset entry.
+
+**Disable WDT:**
+
+Type `/exit` in the serial REPL or send `/exit` via Telegram. The agent will:
+- Feed the WDT to prevent immediate reset
+- Save `WATCHDOG_ENABLED = False` to `/config.py`
+- Restart the agent
+
+---
+
+## 11. WiFi Recovery (Non-Blocking Reconnect)
 
 Pico2WClaw includes a non-blocking WiFi recovery mechanism so that a dropped or flaky connection does not freeze the serial REPL, timer callbacks, or LED blink. The state machine lives in `Agent.ensure_wifi()` and is invoked from the top of every `serial_loop()` iteration.
 
@@ -811,7 +945,7 @@ WIFI_AUTO_SOFT_RESET_MS = 0          # 0 disables; set e.g. 300000 for 5-min aut
 
 ---
 
-## 11. Cron Scheduler (`pico_cron.py`)
+## 12. Cron Scheduler (`pico_cron.py`)
 
 A lightweight interval scheduler for recurring GPIO/ADC monitoring that sends status to Telegram.
 
@@ -847,7 +981,7 @@ The `chat_id` defaults to `CRON_DEFAULT_CHAT_ID` (or the first `TELEGRAM_ALLOWED
 
 ---
 
-## 12. Skills Loader (`skills_loader.py`)
+## 13. Skills Loader (`skills_loader.py`)
 
 Loads pluggable skills from the `skills/` directory. Each skill is a `.py` file with an optional `SKILL_INSTR` string (injected into the LLM system prompt) and an optional `TOOLS` dict (merged into `TOOL_REGISTRY`).
 
@@ -868,7 +1002,7 @@ TOOLS = {
 
 ---
 
-## 13. End-to-End Examples
+## 14. End-to-End Examples
 
 ### Example 1: Telegram `/info` Command
 
@@ -967,13 +1101,13 @@ TOOLS = {
 **Session 1:**
 
 - User: "My favorite sensor is the DS18B20 on pin 28."
-- LLM calls `memory.add("user", "My favorite sensor is the DS18B20 on pin 28")`.
+- LLM calls `pico_memory.add("user", "My favorite sensor is the DS18B20 on pin 28").`
 - Memory is saved to `/memory/transcript.txt`.
 
 **Session 2 (later):**
 
 - User: "Which sensor do I like?"
-- LLM calls `memory.search("which sensor do i like")`.
+- LLM calls `pico_memory.search("which sensor do i like")`.
 - TF-IDF scoring finds "DS18B20" with high relevance.
 - Snippet is injected into the user message as `[Relevant memory]`.
 - LLM responds: "You mentioned your favorite sensor is the DS18B20 on pin 28."
@@ -1000,9 +1134,37 @@ TOOLS = {
 6. If it stays down past 8 s, state moves to `cooldown` for `WIFI_RECONNECT_COOLDOWN_MS` (10 s) before another attempt.
 7. If `WIFI_AUTO_SOFT_RESET_MS` is set and WiFi has been down that long, `wifi_maybe_soft_reset()` triggers `machine.soft_reset()`.
 
+### Example 8: Watchdog (WDT) Test
+
+**Scenario:** Verify the hardware watchdog resets the board on a hang.
+
+**Flow:**
+1. Enable WDT in `config.py`:
+   ```python
+   WATCHDOG_ENABLED = True
+   WATCHDOG_TIMEOUT_MS = 4000
+   WATCHDOG_FEED_INTERVAL_MS = 500
+   WATCHDOG_LOG_FILE = "/wdt.log"
+   WATCHDOG_LOG_MAX_LINES = 20
+   ```
+2. Boot the board. `boot2.py` initializes the WDT and starts a feed timer.
+3. Open serial REPL and type `/wdt` to verify WDT is enabled.
+4. Type `/wdt_test` to trigger an intentional hang.
+5. After `WATCHDOG_TIMEOUT_MS` (4 s), the hardware WDT resets the board.
+6. On reboot, `/wdt.log` contains a reset entry with the local time (UTC+8):
+   ```
+   WDT_RESET|2026-11-11 08:31:22+0800
+   ```
+7. Type `/exit` to disable WDT, persist `WATCHDOG_ENABLED = False` to `config.py`, and restart the agent.
+
+**Notes:**
+- The feed timer runs every `WATCHDOG_FEED_INTERVAL_MS` (500 ms), calling `config.WDT.feed()` to pet the watchdog.
+- The feed timer is a low-priority `machine.Timer(-1)` that runs in the background. If the main loop blocks for more than `WATCHDOG_TIMEOUT_MS`, the hardware WDT resets the device.
+- `/wdt_test` deinitializes the feed timer and enters an infinite loop; the WDT fires within the timeout period, causing a hardware reset.
+
 ---
 
-## 14. Constraints & Design Decisions
+## 15. Constraints & Design Decisions
 
 ### 14.1 Memory Constraints
 
@@ -1035,51 +1197,63 @@ TOOLS = {
 
 ---
 
-## 15. Troubleshooting
+## 16. Troubleshooting
 
-### 15.1 LED Blink Stretched or Glitchy
+### 16.1 LED Blink Stretched or Glitchy
 
 - **Symptom:** LED period is 3–4x longer than requested, or visible on-off spikes.
 - **Cause:** Main loop blocked by `input()` or `urequests.get()`.
 - **Fix:** Use `sys.stdin.settimeout(0.02)` for serial input. Telegram polling must run in `_thread` or a `machine.Timer` fallback.
 
-### 15.2 CLI Prompt Missing After Telegram Output
+### 16.2 CLI Prompt Missing After Telegram Output
 
 - **Symptom:** After a Telegram message is processed, the serial REPL does not show `> ` until Enter is pressed.
 - **Cause:** The background `_thread` Telegram path bypasses the `_telegram_due` flag that `serial_loop()` monitors.
 - **Fix:** `boot2.py`'s `_tg_worker` prints `> ` directly after `telegram_loop()` returns `True`.
 
-### 15.3 DeepSeek Auth Failures
+### 16.3 DeepSeek Auth Failures
 
 - **Symptom:** "Authentication Fails" for non-command Telegram messages.
 - **Cause:** Invalid, expired, or rate-limited API key. Or the placeholder key is still in `config.py`.
 - **Fix:** Verify `config.LLM_API_KEY` is a real DeepSeek key. Check quota at platform.deepseek.com.
 
-### 15.4 /info Hang on Serial
+### 16.4 /info Hang on Serial
 
 - **Symptom:** Typing `/info` in serial REPL causes the prompt to hang.
 - **Cause:** `sys.stdin.settimeout(0)` returns `None` for newlines on some MicroPython builds.
 - **Fix:** Use `sys.stdin.settimeout(0.02)` with a 300 ms auto-submit fallback for incomplete lines.
 
-### 15.5 Memory Not Persisting
+### 16.5 Memory Not Persisting
 
 - **Symptom:** Memory is empty after reboot.
 - **Cause:** `/memory` directory does not exist or is not writable.
 - **Fix:** Ensure flash storage is writable. Check `pico_memory.py`'s `storage_dir` path (default `/memory`).
 
-### 15.6 Cron Job Not Firing
+### 16.6 Cron Job Not Firing
 
 - **Symptom:** Scheduled job never sends a Telegram message.
 - **Cause:** `CRON_ENABLED` is False, the main loop is blocked, or `chat_id` is None and no default is configured.
 - **Fix:** Verify `config.CRON_ENABLED = True`, keep the serial loop responsive, and set `CRON_DEFAULT_CHAT_ID` or `TELEGRAM_ALLOWED_USERS`.
 
+### 16.7 WDT Not Firing (Watchdog Reset Not Happening)
+
+- **Symptom:** Board hangs but never reboots, even with WDT enabled.
+- **Cause:** `WATCHDOG_ENABLED = False` in `config.py`, or the feed timer callback is not running.
+- **Fix:** Set `WATCHDOG_ENABLED = True` in `config.py`, ensure `boot2.py` initializes the WDT at boot, and verify the feed timer is active (`_wdt_timer.init(...)`).
+
+### 16.8 WDT Overflow Reset Log Empty
+
+- **Symptom:** WDT reset occurs but `/wdt.log` is empty or missing.
+- **Cause:** The log file writes fail silently (e.g., flash is not writable, or the boot script's log function fails).
+- **Fix:** Check that `/wdt.log` is writable. The code writes with `open(config.WATCHDOG_LOG_FILE, "a")`; ensure the filesystem is readable/writable.
+
 ---
 
-## 16. File Structure
+## 17. File Structure
 
 ```
 pico2wclaw/
-├── boot2.py           # Boot script: WiFi, NTP, agent, Telegram thread
+├── boot2.py           # Boot script: WiFi, NTP, agent, Telegram, WDT init
 ├── agent.py          # Core agent: LLM client, tool loop, serial + Telegram, cron tick
 ├── tools.py          # Tool registry, JSON schemas, hardware callables
 ├── pico_memory.py    # TF-IDF memory, filesystem persistence (/memory)
@@ -1089,6 +1263,7 @@ pico2wclaw/
 ├── ssd1306.py        # SSD1306 OLED driver (I2C)
 ├── skills_loader.py  # Pluggable skills loader
 ├── pico_cron.py      # Interval scheduler, persists /cron/jobs.txt
+├── watchdog            # Watchdog: WDT init, reset logging (boot2.py), status commands
 ├── skills/           # Optional skill modules (*.py)
 └── README.md         # Setup instructions
 ```
@@ -1097,11 +1272,11 @@ Upload all `.py` files to the Pico 2 W using Thonny IDE or `mpremote`. Ensure `s
 
 ---
 
-## 17. Summary
+## 18. Summary
 
 Pico2WClaw is a complete embedded agentic AI system that fits within the Raspberry Pi Pico 2 W's resource constraints. It achieves this through:
 
-- **Modular architecture:** Each concern (boot, agent, tools, memory, display, LED, cron, skills) is isolated in its own module.
+- **Watchdog** (WDT) — hardware watchdog with automatic reset, reset logging to `/wdt.log`, and `/wdt` / `/wdt_test` commands for debugging hangs
 - **Non-blocking I/O:** Serial REPL and Telegram polling coexist without blocking each other.
 - **Minimal memory footprint:** Keyword-based memory instead of embeddings; tool schemas are compact; context is bounded.
 - **Hardware-aware design:** Direct register access via `machine` module; timer-based LED blink; I2C display and buzzer PWM.
