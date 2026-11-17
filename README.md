@@ -37,7 +37,8 @@ More detail information about Pico2WClaw usage can be obtained here: [Pico2WClaw
 Pico2WClaw detail technical documentation of how it works can be obtained here: [Pico2WClaw Docs](/resources/pico2wclaw_docs.md) 
 
 ## :computer: Development Platform
-I have tested on Raspberry Pi Pico 2 W running Thonny. It may also work on Raspberry Pi Pico W.
+I have tested on Raspberry Pi Pico 2 W running Thonny.\
+It will not work on Raspberry Pi Pico W because its 264kB is not enough for the agent to run.
 
 On the Raspberry Pi Pico 2 W:
 1. Do ensure that the Raspberry Pi Pico 2 W is flashed with the correct *.uf2 file
@@ -242,7 +243,17 @@ Today successfully implemented a model fallback when main LLM model is down. Pri
 ~~~~python
 	_i2c = machine.I2C(0, sda=..., scl=..., freq=200000, timeout=100000)
 ~~~~
-  
+- 11th Nov 2026: I have finally completed the code for my Pico2WClaw AI agent, even implemented Watch Dog timer for system recovery in case something happen causing the microcontroller to be in hung state.\
+It would also recover from WiFi failure. I turned off my WiFi at night at 10.30pm. Powered it up with a power bank at 6.50pm. I plan to run it until the power bank runs out of battery which might be few days.\
+This is the system robustness acid test. 
+- 12th Nov 2026: 24 hours milestone, all of agent's system still functioning as normal🤗
+- 13th Nov 2026: Passed the 48 hours milestone.... All systems functioning.
+- 14th Nov 2026: Accomplished 72 hours milestone (3 days) running on battery...\
+At 10.58pm Pico2WClaw sent its last Telegram message. My house Wifi turned off at 11.00pm during weekend. When WiFi turned back at 2.00am, Pico2WClaw never reconnected because the powerbank was too low to power on the device.
+  <img src="resources/acidtest-14-11-2026.jpg" width="500" />
+- 15th Nov 2026: Connected to laptop , the device powered up and performed as normal. I found an issue that after i issue the /exit prompt, I am able to see Pico2WClaw files through Thonny. I found that instead of changing only config.py file's WATCHDOG_ENABLED to false, the whole file is blanked.\
+This is an issue to look into. Otherwise Pico2WClaw software stack is deemed stable and robust.
+
 ## :plate_with_cutlery: Incomplete Todo Tasks
 - [X] Add Skills file capability like other Agentic Agent, such as PicoClaw, Hermes, OpenClaw, etc
 - [X] Add agent memory saving to Pi Pico 2 W internal flash instead of external SD card
@@ -251,9 +262,10 @@ Today successfully implemented a model fallback when main LLM model is down. Pri
 - [X] Add the ability for Pico2WClaw to recover and reconnect back when WiFi is loss/disconnected.
 - [X] Add a command /model which would display information on the provider and model of LLM used
 - [X] Implement a model fallback when main LLM model is down. Always use main model and only fallback when main model is down and display fallback status at serial cli.
-- [ ] Add Watchdog in order for whole system to recover in the event Pico2WClaw gets into hung conditions. Using Pi Pico 2 W hardware Watchdog Timer (WDT) and also once reset due to WDT overflow, at the start up boot will displayed that system reset due to WDT triggered.
+- [X] Add Watchdog in order for whole system to recover in the event Pico2WClaw gets into hung conditions. Using Pi Pico 2 W hardware Watchdog Timer (WDT) and also once reset due to WDT overflow, at the start up boot will displayed that system reset due to WDT triggered.
 - [ ] ~~Explore adding MQTT client features to Pico2WClaw so that cron job can be set up to read from sensors, such as DHT11 temperature and humidity and publish through MQTT for subscribers to use.~~
 > ***After further check and weighing between merit and demerit of MQTT implementation with Hermes's input, decided not to go ahead because there is not much merit of doing this since Pico2WClaw itself already have an AI Agent running LLM through cloud API. In addition it can take in natural language prompt through Telegram and send data to Telegram.***
+- [ ] After issuing /exit prompts, device is able to disable Watchdog Timer but it is because config.py file is empty instead of only setting WATCHDOG_ENABLED to false.
 
 ## :coffee: Buy Me a Coffee
 If you appreciate my work, do support me by...<br>
