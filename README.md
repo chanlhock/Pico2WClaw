@@ -153,6 +153,11 @@ On Raspberry Pi Pico 2 W, the Micropython code would run an autonomous Agentic A
 - OLED SSD1306 4 lines display setable through Telegram bot message to LLM
 More detail information can be obtained from [Pico2WClaw README](/pico2wclaw/README.md)
 
+Pico2WClaw Agentic Agent Hardware Schematic Diagram:
+<p float="left">
+  <img src="resources/pico2wclaw-schematic-diagram.jpg" width="600" />
+</p>
+
 Pico2WClaw Agentic Agent Block Diagram:
 <p float="left">
   <img src="resources/pico2wclaw-block-diagram.jpg" width="600" />
