@@ -15,7 +15,7 @@ This is a heavily trimmed-down port of the Pico2WClaw/OpenClaw concept:
 
 | File | Role |
 |---|---|
-| `boot2.py` | Entry point — WiFi, NTP, starts agent + Telegram thread |
+| `boot2.py` | Entry point — WiFi, NTP, WDT init, starts agent + Telegram thread |
 | `agent.py` | Agent loop — LLM call, tool execution, memory, skills |
 | `tools.py` | Tool registry: GPIO, ADC, PWM, I2C, exec, info, LED blink, buzzer, DHT11 |
 | `pico_memory.py` | File-backed keyword memory store (default: `/memory/`) |
@@ -25,6 +25,7 @@ This is a heavily trimmed-down port of the Pico2WClaw/OpenClaw concept:
 | `config.py` | WiFi SSID/password, LLM API key/model, Telegram bot token, plus optional WATCHDOG_* settings |
 | `ssd1306.py` | SSD1306 OLED I2C driver (required for display output) |
 | `display.py` | OLED + buzzer wrapper: status UI, boot splash, tone playback |
+| `watchdog` | Hardware watchdog module (RP2350) — automatic reset on hang, reset logging to `/wdt.log` |
 
 ## Setup
 
@@ -38,7 +39,7 @@ This is a heavily trimmed-down port of the Pico2WClaw/OpenClaw concept:
    - Open **Thonny**
    - Select **MicroPython (RP2350)** as the interpreter
    - Save `config.py` to the Pico and edit your WiFi + API key + Telegram bot token
-   - Save `boot2.py`, `agent.py`, `pico_memory.py`, `tools.py`, `led_blink.py`, `ssd1306.py`, `display.py`, `skills_loader.py`, `pico_cron.py` to the Pico
+   - Save `boot2.py`, `agent.py`, `pico_memory.py`, `tools.py`, `led_blink.py`, `ssd1306.py`, `display.py`, `skills_loader.py`, `pico_cron.py`, `watchdog` to the Pico
    - If you have custom skills, create the `skills/` folder and place your `.py` skill files inside
 
 3. Power-cycle the Pico. It will connect to WiFi and print a `>` prompt.
@@ -66,6 +67,7 @@ At the `>` prompt, type messages like:
 - `/model` — show LLM provider and model
 - `/wifi` — check/reconnect WiFi
 - `/wdt` — show watchdog status and recent watchdog reset log
+- `/wdt_test` — trigger a deliberate hang to test the watchdog (hardware reset after timeout)
 
 ## Onboard LED Blinking
 
@@ -170,29 +172,34 @@ TOOLS = {
 
 ## Watchdog (WDT)
 
-The project supports a hardware watchdog timer for automatic recovery from hangs.
+The project supports a hardware watchdog timer (RP2350) for automatic recovery from hangs. When enabled, the boot script (`boot2.py`) initializes the watchdog and a periodic feed timer. If the board hangs for longer than `WATCHDOG_TIMEOUT_MS`, the hardware resets the Pico automatically.
 
 ### Configuration (`config.py`)
 
 ```python
 WATCHDOG_ENABLED = True
-WATCHDOG_TIMEOUT_MS = 4000          # WDT timeout (ms)
-WATCHDOG_FEED_INTERVAL_MS = 500     # feed interval (ms)
-WATCHDOG_LOG_FILE = "/wdt.log"
-WATCHDOG_LOG_MAX_LINES = 20
+WATCHDOG_TIMEOUT_MS = 4000          # WDT timeout (ms) — after this, the hardware resets
+WATCHDOG_FEED_INTERVAL_MS = 500     # feed interval (ms) — must be less than timeout
+WATCHDOG_LOG_FILE = "/wdt.log"      # reset log file
+WATCHDOG_LOG_MAX_LINES = 20         # max lines kept in the reset log
 ```
 
-When enabled, the boot script starts a hardware watchdog and a periodic feed timer. If the board hangs for longer than `WATCHDOG_TIMEOUT_MS`, the hardware resets the Pico.
+### How it works
 
-### Reviewing WDT activity
+1. **Boot**: `boot2.py` reads the `WATCHDOG_*` settings from `config.py` and initializes the hardware watchdog.
+2. **Feeding**: A hardware timer feeds the watchdog every `WATCHDOG_FEED_INTERVAL_MS` milliseconds.
+3. **Hang detection**: If the main program stops running (e.g., stuck in an infinite loop, waiting on a failed network call, or crashed), the watchdog is not fed. After `WATCHDOG_TIMEOUT_MS` without a feed, the RP2350's hardware triggers a system reset.
+4. **Reset logging**: On reset, the boot script logs the event with the current time (converted to UTC+8) to `WATCHDOG_LOG_FILE` (default `/wdt.log`). The log keeps up to `WATCHDOG_LOG_MAX_LINES` entries.
+5. **Recovery**: The Pico boots back up, re-syncs WiFi and NTP, and resumes the agent.
 
-After a WDT‑triggered reset, the boot process logs the event (with the current time converted to UTC+8) into `/wdt.log`. You can view the status and recent resets with the `/wdt` command:
+### WDT status and control
 
-```text
-/wdt
-```
+| Command | Description |
+|---|---|
+| `/wdt` | Show WDT status and recent reset log entries from `/wdt.log` |
+| `/wdt_test` | Trigger a deliberate hang by spinning an infinite loop — the watchdog resets the board after `WATCHDOG_TIMEOUT_MS`. Use to verify the watchdog works. |
 
-Output looks like:
+Example `/wdt` output:
 
 ```text
 WDT enabled: True
@@ -202,7 +209,41 @@ Recent resets (up to 5):
   2026-11-10 14:22:09+0800
 ```
 
-To disable the watchdog, send `/exit`. The agent will deinitialize the WDT, update `config.py`, and stop.
+Example `/wdt_test` flow:
+
+1. `> /wdt_test` — agent enters an infinite loop
+2. Wait ~4 seconds (if `WATCHDOG_TIMEOUT_MS = 4000`)
+3. Hardware reset occurs; the Pico reboots
+4. `/wdt` shows the latest reset entry in `/wdt.log`
+
+To disable the watchdog, send `/exit`. The agent deinitializes the WDT, updates `config.py`, and stops.
+
+### WDT test example
+
+```text
+> /wdt
+WDT enabled: False
+
+> config.py
+WATCHDOG_ENABLED = True
+WATCHDOG_TIMEOUT_MS = 4000
+WATCHDOG_FEED_INTERVAL_MS = 500
+WATCHDOG_LOG_FILE = "/wdt.log"
+WATCHDOG_LOG_MAX_LINES = 20
+
+> /wdt_test
+(wait ~4s)
+[hardware reset]
+
+> /wdt
+WDT enabled: True
+Latest reset: 2026-11-12 09:15:33+0800
+Recent resets (up to 5):
+  2026-11-12 09:15:33+0800
+
+> cat /wdt.log
+2026-11-12 09:15:33+0800 — WDT triggered reset
+```
 
 ## OLED + Buzzer
 
@@ -238,4 +279,4 @@ For best latency on Pico, use a fast/small model (e.g., `gemini-2.0-flash-lite`,
 - Do not name files `memory.py`, `time.py`, `re.py`, etc. — they may shadow MicroPython built-ins. The memory module is named `pico_memory.py` to avoid this.
 - Tool calls are recursive up to `TOOL_CALL_MAX_ROUNDS` (default 4) per turn.
 - No sub-agents or cron — kept simple for 520 KB SRAM.
-- The hardware watchdog will automatically reset the board if the program hangs for longer than the configured `WATCHDOG_TIMEOUT_MS`. Recent resets are recorded in `/wdt.log`.
+- The hardware watchdog (`watchdog` module) automatically resets the board if the program hangs for longer than the configured `WATCHDOG_TIMEOUT_MS`. Recent resets are recorded in `/wdt.log`.
