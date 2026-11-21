@@ -98,60 +98,14 @@ Replies go through the same LLM + tools pipeline as serial input.
 
 ## Skills
 
-Pico2WClaw supports extensible **MicroPython skills** placed in a `skills/` folder. Each skill is a `.py` module that exposes:
+Pico2WClaw supports extensible **MicroPython skills** — self-contained `.py` modules in a `skills/` folder. Each skill is a reusable component that the agent can invoke to perform a specific task. Skills are loaded at agent startup and their instructions are injected into the LLM system prompt.
 
-- `SKILL_INSTR` — instruction text injected into the LLM system prompt
-- `TOOLS` — optional dict of tool definitions with callable references
+### Skill file contract
 
-At startup, `agent.py` calls `skills_loader.load_skills()`, which scans `skills/*.py`, loads their instructions into the system prompt under `[Loaded skills]`, and merges any tool definitions into the main `TOOL_REGISTRY`.
-
-Available serial/Telegram commands:
-
-- `/skills` — list all loaded skill names
-- `/skill_read <name>` — read a skill's `SKILL_INSTR` text
-- `/cron` — manage cron jobs (`list`/`add`/`del`/`on`/`off`)
-- `/cron add <gpio|adc> <pin> <interval_ms> [chat_id] [message...]`
-- `/exit` — stop the agent (serial + Telegram)
-- `/model` — show LLM provider and model
-- `/wifi` — check/reconnect WiFi
-
-### DHT11 temperature/humidity sensor
-
-- Hardware: DHT11 connected to a GPIO pin (default example uses GPIO4).
-- Tool: `read_dht(pin=4)` returns `T=..C H=..%` or an error string such as `checksum_error`, `timeout_high`, or `no_response_low`.
-- Cron: `dht` is a supported cron type and can update the OLED bottom lines and send Telegram.
-
-Examples:
-
-```text
-Read DHT11 on GPIO4
-Create a cron job to read from DHT11 GPIO4 every 5 minutes and send to Telegram the message "From DHT11 sensor every 5mins:"+dht value
-/cron add dht 4 300000 8684515324 "From DHT11 sensor every 5mins: temp {temp}C, humidity {hum}%"
-```
-
-DHT cron templates support `{value}`, `{pin}`, `{type}`, `{temp}`, and `{hum}` placeholders. `{temp}` and `{hum}` are filled from the latest DHT reading.
-
-### Cron examples
-
-```text
-/cron                          # list jobs
-/cron list                     # list jobs
-/cron add gpio 25 5000         # read GPIO25 every 5s, send to default chat
-/cron add dht 4 300000        # read DHT11 on GPIO4 every 5min
-/cron add adc 26 10000         # read ADC26 every 10s
-/cron add adc 26 10000 8684515324 "ADC26 reading"   # custom chat + message
-/cron on 1                     # enable job id 1
-/cron off 1                    # disable job id 1
-/cron del 1                    # delete job id 1
-```
-
-Message templates support `{value}`, `{pin}`, `{type}`, `{temp}`, and `{hum}` placeholders, e.g. `GPIO{pin}={value}` or `temp {temp}C, humidity {hum}%`.
-
-Jobs are persisted in `/cron/jobs.txt` (survives `/clear` and reboots). Only one job runs per tick; execution uses the main loop (no LLM call).
-
-**Skill file contract:**
+A skill is a MicroPython `.py` module that exposes two variables:
 
 ```python
+# my_skill.py
 SKILL_INSTR = "1-3 sentences describing when and how to use this skill."
 
 TOOLS = {
@@ -163,12 +117,117 @@ TOOLS = {
 }
 ```
 
-**Important MicroPython constraints:**
+- **`SKILL_INSTR`** — instruction text (1-3 sentences) injected into the LLM system prompt. The LLM uses this to decide when to call the skill.
+- **`TOOLS`** — optional dict of tool definitions. Each entry maps a tool name to:
+  - `description` — what the tool does (shown to the LLM)
+  - `parameters` — JSON schema of the tool's input parameters
+  - `callable` — the MicroPython function to execute when the tool is called
+
+When a skill is loaded, `skills_loader.py` scans `skills/*.py`, loads each `SKILL_INSTR` into the system prompt under `[Loaded skills]`, and merges any tool definitions into the main `TOOL_REGISTRY` (from `agent.py`).
+
+### Creating a skill
+
+1. Create a file in the `skills/` folder, e.g., `skills/my_skill.py`
+2. Define `SKILL_INSTR` with a clear description of when and how to use the skill
+3. Optionally define `TOOLS` with callable functions
+4. Import any required dependencies at the top of the file
+
+### MicroPython constraints
 
 - Import every dependency at the top of the skill file (`time`, `machine`, etc.). The `exec()` namespace does not inherit the agent's globals.
 - Do not name skill files `memory.py`, `time.py`, `re.py`, etc. — they may shadow built-ins. Use project-prefixed names.
 - Avoid heavy stdlib: no `collections.Counter`, `re.findall`, `str.isalnum`, or `os.path`.
 - Skills are executed in an isolated `exec()` namespace. No side effects at import time.
+
+## Cron
+
+Pico2WClaw includes an interval-based **cron scheduler** (`pico_cron.py`) that runs periodic background tasks at fixed intervals. Cron jobs execute in the main loop without LLM calls — they are pure MicroPython callbacks.
+
+### Supported cron types
+
+| Type | Description | Required parameters |
+|---|---|---|
+| `gpio` | Read a GPIO pin's state at an interval | `<pin> <interval_ms>` |
+| `adc` | Read an ADC pin's value at an interval | `<pin> <interval_ms>` |
+| `dht` | Read DHT11 temperature/humidity at an interval | `<pin> <interval_ms>` |
+
+### Cron commands
+
+| Command | Description |
+|---|---|
+| `/cron` | List all jobs |
+| `/cron list` | List all jobs |
+| `/cron add <type> <pin> <interval_ms> [chat_id] [message...]` | Add a new cron job |
+| `/cron on <id>` | Enable job id |
+| `/cron off <id>` | Disable job id |
+| `/cron del <id>` | Delete job id |
+
+### Cron job types and examples
+
+#### GPIO polling
+
+Read a GPIO pin state at a fixed interval:
+
+```text
+/cron add gpio 25 5000         # read GPIO25 every 5s, send to default chat
+/cron add gpio 2 1000          # read GPIO2 every 1s
+```
+
+Example message template:
+
+```text
+GPIO{pin}={value}              # e.g., "GPIO25=1"
+```
+
+#### ADC polling
+
+Read an ADC pin's analog value at a fixed interval:
+
+```text
+/cron add adc 26 10000         # read ADC26 every 10s, send to default chat
+/cron add adc 27 5000 8684515324 "ADC27 reading"   # custom chat + message
+```
+
+Example message template:
+
+```text
+ADC{pin}={value}               # e.g., "ADC26=521"
+```
+
+#### DHT11 sensor
+
+Read DHT11 temperature/humidity at a fixed interval:
+
+```text
+/cron add dht 4 300000         # read DHT11 on GPIO4 every 5min
+/cron add dht 5 600000         # read DHT11 on GPIO5 every 10min
+```
+
+Example message template:
+
+```text
+temp {temp}C, humidity {hum}%  # e.g., "temp 28C, humidity 62%"
+```
+
+### Message templates
+
+Cron jobs support message templates with placeholders. The `{value}`, `{pin}`, `{type}`, `{temp}`, and `{hum}` placeholders are filled from the latest reading:
+
+- `{value}` — the raw sensor value
+- `{pin}` — the GPIO/ADC pin number
+- `{type}` — the cron type (`gpio`, `adc`, or `dht`)
+- `{temp}` — the temperature value (for DHT11)
+- `{hum}` — the humidity value (for DHT11)
+
+Example:
+
+```text
+From DHT11 on GPIO4: temp {temp}C, humidity {hum}%
+```
+
+### Job persistence
+
+Jobs are persisted in `/cron/jobs.txt` (survives `/clear` and reboots). Only one job runs per tick; execution uses the main loop (no LLM call).
 
 ## Watchdog (WDT)
 
