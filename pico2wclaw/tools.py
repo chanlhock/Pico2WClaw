@@ -175,6 +175,7 @@ def read_dht(pin=4):
     try:
         import dht
         from machine import Pin
+        time.sleep(2)   # To resolve the [Errno 110] ETIMEDOUT error 
         sensor = dht.DHT11(Pin(int(pin)))
         sensor.measure()
         t = sensor.temperature()
