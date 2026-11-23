@@ -18,7 +18,7 @@ This is a heavily trimmed-down port of the Pico2WClaw/OpenClaw concept:
 | `boot2.py` | Entry point — WiFi, NTP, WDT init, starts agent + Telegram thread |
 | `agent.py` | Agent loop — LLM call, tool execution, memory, skills |
 | `tools.py` | Tool registry: GPIO, ADC, PWM, I2C, exec, info, LED blink, buzzer, DHT11 |
-| `pico_memory.py` | File-backed keyword memory store (default: `/memory/`) |
+| `pico_memory.py` | File-backed keyword memory store (default: `/memory/`) — TF-IDF scoring, improved from `N/(1+df)` to `log(N/(1+df))` with sublinear `1+log(tf)` |
 | `pico_cron.py` | Interval cron scheduler — GPIO/ADC/DHT monitoring + Telegram status (persisted in `/cron/jobs.txt`) |
 | `skills_loader.py` | Loads `skills/*.py` skill files at agent startup |
 | `led_blink.py` | Persistent onboard-LED blink helper (`led_blink_start` by Hz, `start_blink` by ms period, `led_blink_stop`, `led_toggle`) |
@@ -26,6 +26,21 @@ This is a heavily trimmed-down port of the Pico2WClaw/OpenClaw concept:
 | `ssd1306.py` | SSD1306 OLED I2C driver (required for display output) |
 | `display.py` | OLED + buzzer wrapper: status UI, boot splash, tone playback |
 | `watchdog` | Hardware watchdog module (RP2350) — automatic reset on hang, reset logging to `/wdt.log` |
+
+## Memory (TF-IDF keyword store)
+
+`pico_memory.py` persists a lightweight keyword/TF-IDF memory to `/memory/transcript.txt` (format `role|text`, one line per entry). It exists to recall past instructions, sensor readings, and user preferences without resending the whole transcript to the LLM on every turn.
+
+**How it scores** — each query term gets `tf * idf`:
+- `tf = 1 + log(term_count_in_doc)` — sublinear frequency scaling, so one long sentence mentioning a word 10 times doesn't outrank several genuinely relevant docs mentioning it once.
+- `idf = log(N / (1 + df))` — inverse document frequency, where `N` is the document count and `df` is how many docs contain the term. The `log` caps the extreme rarity boost of a term that appears in only one document.
+
+The old implementation used `N / (1 + df)` (unbounded) and raw `tf`, which let a rare term dominate and a verbose doc win. The log version keeps the intent but keeps scores sane across a 20-document transcript.
+
+**Notes**
+- No stemming, no synonyms, no cosine normalization — matching is exact-token overlap only. The tokenizer is ASCII-only (`a-z`, `0-9`, `_`), so non-ASCII input (°, CJK, em-dashes) is dropped or split.
+- `/memory` — search memory manually. `/clear` — wipe history + memory.
+- MicroPython constraints: manual char-loop tokenizer (no `re.findall`), plain-dict `_counter` (no `collections.Counter`), min-token length 3, ~33-word stopword list.
 
 ## Setup
 

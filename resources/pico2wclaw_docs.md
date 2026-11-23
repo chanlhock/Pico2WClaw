@@ -599,7 +599,7 @@ Both call `_blinker.start(period_ms)` under the hood. `led_blink_stop()` stops t
 
 ## 8. Memory System (`pico_memory.py`)
 
-Pico2WClaw uses a lightweight keyword/TF-IDF memory stored on the filesystem. No vector embeddings are used (too heavy for 520 KB SRAM).
+Pico2WClaw uses a lightweight keyword/TF-IDF memory stored on the filesystem. No vector embeddings are used (too heavy for 520 KB SRAM). The scoring was recently improved from an unbounded `N / (1 + df)` formula with raw term frequency to the standard log-based TF-IDF (`log(N / (1 + df))` with sublinear `1 + log(tf)`), which keeps rankings sane across a multi-document transcript.
 
 ### 8.1 Storage Format
 
@@ -656,9 +656,9 @@ def search(self, query, max_results=5, max_chars=1500):
         score = 0.0
         for qt in query_tokens:
             if qt in doc_counts:
-                tf = doc_counts[qt]
+                tf = 1 + math.log(doc_counts[qt])   # sublinear frequency scaling
                 df = self.vocab.get(qt, 1)
-                idf = (N / (1 + df))
+                idf = math.log(N / (1 + df))         # log-scaled inverse doc frequency
                 score += tf * idf
         if score > 0:
             scores.append((score, i))
@@ -666,7 +666,7 @@ def search(self, query, max_results=5, max_chars=1500):
     ...
 ```
 
-For each query term, the score is `tf * idf`, where `idf = N / (1 + df)`. Documents with higher term frequency and lower document frequency rank higher. Results are truncated to `max_chars`.
+Score per query term is `tf * idf`. `tf` uses sublinear scaling (`1 + log(count))`) so a term repeated 10 times doesn't outrank a distinct term that appears once. `idf` uses the standard log form `log(N / (1 + df))` instead of the original `N / (1 + df)`, which was unbounded and let a term in a single document dominate the ranking. Results are truncated to `max_chars`.
 
 ### 8.4 Usage in Agent
 
@@ -1172,6 +1172,7 @@ TOOLS = {
 - **No `collections.Counter`:** Replaced with `_counter()` using plain dicts.
 - **No `re.findall()`:** Tokenization uses a manual character loop.
 - **No `str.isalnum()`:** Character ranges `("a" <= ch <= "z")` and `("0" <= ch <= "9")` are used instead.
+- **TF-IDF scoring (improved):** `idf` is now `log(N / (1 + df))` (was unbounded `N / (1 + df)`) and `tf` is sublinear (`1 + log(count)`, was raw `count`). Keeps rankings sane across multi-document transcripts.
 - **Skills and cron** add small but real overhead; keep skill files minimal.
 
 ### 14.2 Timing Constraints
