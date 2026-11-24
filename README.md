@@ -258,7 +258,9 @@ At 10.58pm Pico2WClaw sent its last Telegram message. My house Wifi turned off a
   <img src="resources/acidtest-14-11-2026.jpg" width="500" />
 - 15th Nov 2026: Connected to laptop , the device powered up and performed as normal. I found an issue that after i issue the /exit prompt, I am able to see Pico2WClaw files through Thonny. I found that instead of changing only config.py file's WATCHDOG_ENABLED to false, the whole file is blanked.\
 This is an issue to look into. Otherwise Pico2WClaw software stack is deemed stable and robust.
-
+- 17th Nov 2026: Fixed and tested the /exit bug.
+- 24th Nov 2026: Released the Pico2WClaw to Public access!
+- 
 ## :plate_with_cutlery: Incomplete Todo Tasks
 - [X] Add Skills file capability like other Agentic Agent, such as PicoClaw, Hermes, OpenClaw, etc
 - [X] Add agent memory saving to Pi Pico 2 W internal flash instead of external SD card
@@ -270,7 +272,7 @@ This is an issue to look into. Otherwise Pico2WClaw software stack is deemed sta
 - [X] Add Watchdog in order for whole system to recover in the event Pico2WClaw gets into hung conditions. Using Pi Pico 2 W hardware Watchdog Timer (WDT) and also once reset due to WDT overflow, at the start up boot will displayed that system reset due to WDT triggered.
 - [ ] ~~Explore adding MQTT client features to Pico2WClaw so that cron job can be set up to read from sensors, such as DHT11 temperature and humidity and publish through MQTT for subscribers to use.~~
 > ***After further check and weighing between merit and demerit of MQTT implementation with Hermes's input, decided not to go ahead because there is not much merit of doing this since Pico2WClaw itself already have an AI Agent running LLM through cloud API. In addition it can take in natural language prompt through Telegram and send data to Telegram.***
-- [ ] After issuing /exit prompts, device is able to disable Watchdog Timer but it is because config.py file is empty instead of only setting WATCHDOG_ENABLED to false.
+- [X] After issuing /exit prompts, device is able to disable Watchdog Timer but it is because config.py file is empty instead of only setting WATCHDOG_ENABLED to false.
 
 ## :coffee: Buy Me a Coffee
 If you appreciate my work, do support me by...<br>
