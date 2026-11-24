@@ -21,6 +21,7 @@
 - [Chronology of Development Events](#hourglass_flowing_sand-chronology-of-development-events)
 - [Incomplete Todo Tasks](#plate_with_cutlery-incomplete-todo-tasks)
 - [Buy Me a Coffee](#coffee-buy-me-a-coffee)
+- [Changelog](#new-changelog)
 - [License](#page_with_curl-license)
 - [Feedback and Suggestions](#speech_balloon-feedback-and-suggestions)
 
@@ -277,6 +278,9 @@ This is an issue to look into. Otherwise Pico2WClaw software stack is deemed sta
 ## :coffee: Buy Me a Coffee
 If you appreciate my work, do support me by...<br>
 <a href="https://www.buymeacoffee.com/chanlhock" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-yellow.png" alt="Buy Me A Coffee" height="41" width="174"></a>
+
+## :new: Changelog
+- [Releases](https://github.com/chanlhock/Pico2WClaw/releases)
 
 ## :page_with_curl: License
 ```
