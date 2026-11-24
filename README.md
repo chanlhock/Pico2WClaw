@@ -260,7 +260,7 @@ At 10.58pm Pico2WClaw sent its last Telegram message. My house Wifi turned off a
 This is an issue to look into. Otherwise Pico2WClaw software stack is deemed stable and robust.
 - 17th Nov 2026: Fixed and tested the /exit bug.
 - 24th Nov 2026: Released the Pico2WClaw to Public access!
-- 
+
 ## :plate_with_cutlery: Incomplete Todo Tasks
 - [X] Add Skills file capability like other Agentic Agent, such as PicoClaw, Hermes, OpenClaw, etc
 - [X] Add agent memory saving to Pi Pico 2 W internal flash instead of external SD card
