@@ -4,6 +4,7 @@ Uses a simple keyword/TF-IDF approach stored on the filesystem.
 No vector embeddings (too heavy for Pico 2 W).
 """
 
+import math
 import os
 
 # MicroPython doesn't have collections.Counter; use a plain dict
@@ -117,9 +118,9 @@ class Memory:
             score = 0.0
             for qt in query_tokens:
                 if qt in doc_counts:
-                    tf = doc_counts[qt]
+                    tf = 1 + math.log(doc_counts[qt])
                     df = self.vocab.get(qt, 1)
-                    idf = (N / (1 + df))
+                    idf = math.log(N / (1 + df))
                     score += tf * idf
             if score > 0:
                 scores.append((score, i))
